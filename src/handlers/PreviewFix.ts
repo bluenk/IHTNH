@@ -81,10 +81,11 @@ export default class PreviewFix extends Handler {
             const needFix = twitterUrls.filter(url => !msg.embeds.find((v) => v.url === url.href));
             // console.log(msg.embeds, {needFix});
             if (!needFix.length) return;
-            log(needFix.length + ' tweet preview failures detected. Fixing...', this.options.info.name);
-
-            const tweetIds = needFix.map(url => url.pathname.split('/')[3]);
-          
+            
+            const tweetIds = needFix.map(url => url.pathname.split('/')[3]).filter(Boolean);
+            if (!tweetIds.length) return;
+            
+            log(tweetIds.length + ' tweet preview failures detected. Fixing...', this.options.info.name);
             const data = await this.fetchTweetLookup(tweetIds);
             if (!data) return;
 
