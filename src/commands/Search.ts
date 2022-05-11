@@ -118,7 +118,7 @@ export default class Search extends Command {
         if (this.isURL(this.url)) {
             this.handleSearch(this.url!, msg);
         } else {
-            await this.editReply({ content: this.sendErr(this.url === undefined ? 'URL_NOT_FOUND' : 'URL_INCORRECT') }, msg)
+            await this.editReply({ content: this.sendErr(this.url === undefined ? 'URL_NOT_FOUND' : 'URL_INCORRECT') }, msg);
             this.replyMsg.delete(msg.id);
         }
     }
