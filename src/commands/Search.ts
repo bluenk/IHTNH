@@ -107,8 +107,8 @@ export default class Search extends Command {
 
             this.url =
                 targetMsg.attachments.first()?.url ??
-                targetMsg.embeds[0].image?.url ??
-                targetMsg.embeds[0].thumbnail?.url;
+                targetMsg.embeds[0]?.image?.url ??
+                targetMsg.embeds[0]?.thumbnail?.url;
         }
         if (msg instanceof Message) {
             this.url = msg.attachments.first()?.url ?? args[1] ?? msg.embeds[0].image?.url;
@@ -118,7 +118,7 @@ export default class Search extends Command {
         if (this.isURL(this.url)) {
             this.handleSearch(this.url!, msg);
         } else {
-            await this.replyMsg.get(msg.id)?.edit(this.sendErr(this.url === undefined ? 'URL_NOT_FOUND' : 'URL_INCORRECT'));
+            await this.editReply({ content: this.sendErr(this.url === undefined ? 'URL_NOT_FOUND' : 'URL_INCORRECT') }, msg)
             this.replyMsg.delete(msg.id);
         }
     }
