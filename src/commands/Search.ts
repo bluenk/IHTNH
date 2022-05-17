@@ -117,6 +117,7 @@ export default class Search extends Command {
         // Make sure the url is vaild.
         if (this.isURL(this.url)) {
             this.handleSearch(this.url!, msg);
+            log(`User ${msg.member?.user.username} trigger this command by an ${msg.type} message.`, this.options.info.name);
         } else {
             await this.editReply({ content: this.sendErr(this.url === undefined ? 'URL_NOT_FOUND' : 'URL_INCORRECT') }, msg);
             this.replyMsg.delete(msg.id);
