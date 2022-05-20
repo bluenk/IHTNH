@@ -32,7 +32,9 @@ export default class Say extends Command {
         });
     }
 
-    public run(msg: CommandInteraction, args?: string[]): void {
-        
+    public async run(msg: CommandInteraction, args?: string[]) {
+        const content = msg.options.getString('message')!;
+        await msg.channel?.send({ content });
+        msg.reply({ content: '\\✔️ | 已發送！', ephemeral: true, allowedMentions: { repliedUser: false } });
     }
 }
