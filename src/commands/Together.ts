@@ -51,7 +51,7 @@ export default class Together extends Command {
             }
 
             this.client.discordTogether.createTogetherCode(member.voice.channel.id, 'youtube')
-                .then((invite: { code: string }) => msg.reply(invite.code));
+                .then((invite: { code: string }) => msg.reply(`[點這邊加入Watch Togther](${invite.code})`));
         }
     }
 }
