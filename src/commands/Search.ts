@@ -186,15 +186,6 @@ export default class Search extends Command {
         });
     }
 
-    private async editReply(options: MessageOptions, msg: CommandInteraction | ContextMenuInteraction | Message) {
-        // Can't edit ephemeral message, use <Interaction>.editReply instead.
-        if (msg instanceof ContextMenuInteraction) {
-            return msg.editReply(options);
-        } else {
-            return this.replyMsg.get(msg.id)?.edit(options);
-        }
-    }
-
     private async makeEmbeds(url: string) {
         const res = await SC(url) as SagiriResultFix[];
 
