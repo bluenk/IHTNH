@@ -23,14 +23,10 @@ export class Client extends DiscordClient {
     public readonly handlers = new HandlerLoader(this);
     public readonly db = new ConnectDb();
     public readonly app = new App(this);
-    public replyCache: Collection<string, ReplyKeywords>;
-    public servers: Collection<string, Guild>;
     public discordTogether: DiscordTogether<{[x: string]: string}> | undefined;
 
     public constructor(options: ClientOptions) {
         super(options);
-        this.servers = new Collection();
-        this.replyCache = new Collection();
     }
 
     public start() {
@@ -44,9 +40,8 @@ export class Client extends DiscordClient {
             log(`Logged in as ${this.user?.tag}`);
             log(`bot running...`);
         
-            this.servers = this.guilds.cache;
             log('guilds:');
-            console.table(this.servers.map(guild => {
+            console.table(this.guilds.cache.map(guild => {
                 return {
                     id: guild.id,
                     name: guild.name,
