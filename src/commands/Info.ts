@@ -65,13 +65,20 @@ export default class Info extends Command {
         const uptime = Math.floor(process.uptime());
         const appUptime = Math.floor(uptime / 24 / 3600) + ' days ' + Math.floor(uptime / 3600 % 60) + ' hr ' + Math.floor(uptime / 60 % 60) + ' min ' + uptime % 60 + ' sec';
 
-        return new MessageEmbed()
-            .setThumbnail(this.client.user?.avatarURL() ?? '')
-            .setTitle('\\📄 詳細資訊')
+        return new MessageEmbed({
+            title: '\\📄 詳細資訊',
+            fields: [
+                { name: '啟動時間', value: `<t:${Math.floor(this.client.readyTimestamp! /1000)}:R>`, inline: true },
+                { name: '群組數', value: this.client.guilds.cache.size.toString(), inline: true },
+                { name: '創建於', value: `<t:${Math.floor(this.client.user!.createdTimestamp /1000)}>`, inline: false },
+                // { name: '當前持有人', value: `<@${process.env.OWNER_ID}>`, inline: false },
+                // { name: 'emoji', value: this.client.emojis.cache.map((v, k) => v).join(''), inline: false },
+                { name: '主動指令', value: [...availableCmd.map(n => '[\\✔️] ' + n), ...unavailableCmd.map(n => '[\\❌] ' + n)].join('\n'), inline: true },
+                { name: '被動指令', value: [...availableHandlers.map(n => '[\\✔️] ' + n), ...unavailableHandlers.map(n => '[\\❌] ' + n)].join('\n'), inline: true }
+            ],
+            thumbnail: { url: this.client.user?.avatarURL() ?? '' }
+        }).showVersion();
             // .addField('運行時間', appUptime, false)
-            .addField('指令狀態', [...availableCmd.map(n => '[\\✔️] ' + n), ...unavailableCmd.map(n => '[\\❌] ' + n)].join('\n'), true)
-            .addField('指令狀態', [...availableHandlers.map(n => '[\\✔️] ' + n), ...unavailableHandlers.map(n => '[\\❌] ' + n)].join('\n'), true)
             // .addField('觸發詞數量',client.replyData ? client.replyData.length.toString() : '', true)
-            .showVersion();
     }
 }
