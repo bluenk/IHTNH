@@ -40,7 +40,12 @@ export default class Help extends Command {
                     },
                     {
                         name: '其他',
-                        value: inlineCode('search') + ' ' + inlineCode('icon') + ' ' + inlineCode('neko') + ' ' + inlineCode('reurl')
+                        value: 
+                            inlineCode('search') + ' ' +
+                            inlineCode('play') + ' ' +
+                            inlineCode('icon') + ' ' +
+                            inlineCode('neko') + ' ' +
+                            inlineCode('reurl')
                     }
                 ]
             }).showVersion();
