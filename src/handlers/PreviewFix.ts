@@ -1,4 +1,4 @@
-import { Interaction, Message, MessageActionRow, MessageButton } from "discord.js";
+import { Collection, Interaction, Message, MessageActionRow, MessageButton, MessageOptions } from "discord.js";
 import { Client } from "../structures/Client";
 import { Handler } from "../structures/Handler";
 import extractURL from "../utils/extractURL";
@@ -40,6 +40,22 @@ interface TweetLookupData {
     };
 }
 
+interface TweetShowData {
+    extended_entities: {
+        media: {
+            video_info: {
+                aspect_ratio: [number, number];
+                duration_millis: number;
+                variants: {
+                    bitrate?: number;
+                    content_type: string;
+                    url: string;
+                }[];
+            }
+        }[];
+    };
+}
+
 export default class PreviewFix extends Handler {
     private repairedMsg: { originId: string, repairedId: string }[] = [];
     private queueSize = 10;
@@ -69,8 +85,8 @@ export default class PreviewFix extends Handler {
 
         const urls = extractURL(msg.content);
         const twitterUrls = urls
-        .map(str =>  new URL(str))
-        .filter(url => url.hostname === 'twitter.com')
+            .map(str =>  new URL(str))
+            .filter(url => url.hostname === 'twitter.com')
         
         if (!twitterUrls.length) return;
         if (msg.content.match(/\|\|(?:.|\n)*\|\|/g)) return;
@@ -89,7 +105,7 @@ export default class PreviewFix extends Handler {
             const data = await this.fetchTweetLookup(tweetIds);
             if (!data) return;
 
-            // console.log({tweetIds}, data);
+            // console.log({tweetIds}, JSON.stringify(data, null, 2));
             const btnActionRow = new MessageActionRow({
                 components: [
                     new MessageButton({
@@ -100,7 +116,7 @@ export default class PreviewFix extends Handler {
                 ] 
             });
             const replyMsg = await msg.reply({
-                embeds: this.makeEmbeds(data),
+                ...this.makeEmbeds(data),
                 allowedMentions: { repliedUser: false },
                 components: [btnActionRow]
             });
@@ -123,13 +139,16 @@ export default class PreviewFix extends Handler {
         }, embedCheckDelay * 1000)
     }
 
-    private makeEmbeds(tweetsData: TweetLookupData) {
+    private makeEmbeds(tweetsData: TweetLookupData): MessageOptions {
         let embeds: MessageEmbed[] = [];
+        let files: string[] = [];
         for (const data of tweetsData.data) {
             const user = tweetsData.includes.users.find(v => v.id === data.author_id)!;
             const media = tweetsData.includes.media.filter(v => data.attachments.media_keys.includes(v.media_key));
             const desArr = data.text.split(' ');
             const tweetShortURL = desArr.pop();
+            
+            if (media[0].type === 'video') files.push(media[0].url);
 
             embeds.push(
                 new MessageEmbed({
@@ -145,7 +164,7 @@ export default class PreviewFix extends Handler {
                     ],
                     image: { url: media[0].url },
                     footer: {
-                        text: `推文預覽修正`,
+                        text: media[0].type === 'video' ? '影片推文，載入速度較慢' : `推文預覽修正`,
                         iconURL: 'https://abs.twimg.com/icons/apple-touch-icon-192x192.png'
                     },
                     timestamp: new Date(data.created_at)
@@ -165,7 +184,7 @@ export default class PreviewFix extends Handler {
             }
         }
 
-        return embeds;
+        return { embeds, files };
     }
     
     private async fetchTweetLookup(tweetIds: string[]): Promise<TweetLookupData | void> {
@@ -174,12 +193,59 @@ export default class PreviewFix extends Handler {
             '?ids=' + tweetIds +
             '&expansions=attachments.media_keys,author_id' +
             '&tweet.fields=created_at,public_metrics' +
-            '&media.fields=url' +
+            '&media.fields=url,preview_image_url' +
             '&user.fields=profile_image_url';
 
+        const tweetShowURL = (id: string) => 'https://api.twitter.com/1.1/statuses/show.json?id=' + id;
+
+        const data = await this.fetchTwitter(tweetLookupURL);
+        if (!data) return;
+
+        
+        const videoMediaKeys = data.includes.media.filter(m => m.type === 'video');
+        const videoMediatweet = data.data.filter(i => {
+            return videoMediaKeys.some(v => i.attachments.media_keys.includes(v.media_key));
+        });
+        const videoMediaIds = videoMediatweet.map(v => v.id);
+            
+        const idMediaKeyPair = new Collection<string, string>();
+        videoMediaKeys.forEach(k => {
+            videoMediatweet.forEach(t => {
+                if (t.attachments.media_keys.includes(k.media_key)) {
+                    idMediaKeyPair.set(t.id, k.media_key);
+                }
+            })
+        })
+
+        if (videoMediaIds) {
+            const showData = new Collection<string, string>();
+
+            for (const id of videoMediaIds) {
+                const res = await this.fetchTwitter(tweetShowURL(id)) as unknown as TweetShowData;
+                
+                const videoURLs = res.extended_entities.media[0].video_info.variants
+                    .filter(v => v.bitrate)
+                    .sort((a, b) =>b.bitrate! - a.bitrate!)
+                    .map(v => v.url);
+
+                showData.set(idMediaKeyPair.get(id)!, videoURLs[0]);
+            }
+
+            for (const mediaKey of showData.keys()) {
+                const index = data.includes.media.findIndex(m => m.media_key === mediaKey);
+                data.includes.media[index].url = showData.get(mediaKey)!;
+            }
+
+            return data;
+        } else {
+            return data;
+        }
+    }
+
+    private async fetchTwitter(url: string): Promise<TweetLookupData | void> {
         let data;
         try {
-            const res = await fetch(tweetLookupURL, {
+            const res = await fetch(url, {
                 headers: {
                     'Authorization': 'Bearer ' + process.env.TWITTER_TOKEN
                 }

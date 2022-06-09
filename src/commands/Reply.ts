@@ -312,7 +312,7 @@ export default class Reply extends Command {
             if (!body.success) throw body;
             data = body.data;
         } catch (err) {
-            return log(err, this.options.info.name);
+            return console.error(err);
         }
 
         return {
