@@ -68,7 +68,7 @@ export default class Info extends Command {
         return new MessageEmbed({
             title: '\\📄 詳細資訊',
             fields: [
-                { name: '啟動時間', value: `<t:${Math.floor(this.client.readyTimestamp! /1000)}:R>`, inline: true },
+                { name: '啟動於', value: `<t:${Math.floor(this.client.readyTimestamp! /1000)}:R>`, inline: true },
                 { name: '群組數', value: this.client.guilds.cache.size.toString(), inline: true },
                 { name: '創建於', value: `<t:${Math.floor(this.client.user!.createdTimestamp /1000)}>`, inline: false },
                 // { name: '當前持有人', value: `<@${process.env.OWNER_ID}>`, inline: false },
