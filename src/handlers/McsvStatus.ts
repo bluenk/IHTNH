@@ -1,11 +1,10 @@
 import { Collection, Message, ThreadChannel } from "discord.js";
 import { Client } from "../structures/Client";
 import { Handler } from "../structures/Handler";
-import * as util from 'minecraft-server-util';
-import { log } from "../utils/logger";
-import { EventEmitter } from "events";
 import MessageEmbed from "../structures/MessageEmbed";
+import * as util from "minecraft-server-util";
 import { FullQueryResponse } from "minecraft-server-util";
+import { log } from "../utils/logger";
 import _ from "lodash";
 
 const fetchDelay = 0.5; //min
