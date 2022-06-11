@@ -6,6 +6,9 @@ import * as util from "minecraft-server-util";
 import { FullQueryResponse } from "minecraft-server-util";
 import { log } from "../utils/logger";
 import _ from "lodash";
+import dns from "dns";
+import { promisify } from 'util';
+const dnsResolve = promisify(dns.resolve);
 
 const fetchDelay = 0.5; //min
 
@@ -44,19 +47,38 @@ export default class McsvStatus extends Handler {
         this.checkStatus();
     }
     
-    private checkStatus() {
+    private async checkStatus() {
         const host = process.env.MC_SERVER_HOST!;
+        const reverseProxyHost = process.env.MC_REVERSE_PROXY_HOST!;
         const options = {
             timeout: 1000 * 15,
             enableSRV: false
         };
+
+        // Check the server IP to offset the difference in latency between clitnt and player.
+        // If serverIP equal to reverseProxyIP => Reverse proxy, add about 45ms(proxy to player RTT)*.
+        // * Cilent and Proxy are on the same machine.
+        // Using proxy:     player <──45ms + localLatency──> proxy/client <──45ms + localLatency──> server
+        // Not using proxy: player <──localLatency──> server, clint <──45ms + localLatency──> server
+        let offset = 0;
+        if (reverseProxyHost) {
+            try {
+                const serverIP = await dnsResolve(host);
+                const reverseProxyIP = await dnsResolve(process.env.MC_REVERSE_PROXY_HOST!);
+                
+                offset = serverIP[0] === reverseProxyIP[0] ? 45 : -45 ;
+            } catch (err) {
+                console.error(err);
+            }
+        }
+        
         
         util.status(host, 25565, options)
             .then(async (result) => {
                 const res = await util.queryFull(host, 25565, options);
                 console.log(res);
 
-                this.handleStatus(Status.UP, res, result.roundTripLatency);
+                this.handleStatus(Status.UP, res, result.roundTripLatency + offset);
             })
             .catch((err) => {
                 this.handleStatus(Status.DOWN);
@@ -110,6 +132,7 @@ export default class McsvStatus extends Handler {
             if (this.detailMsg) {
                 this.detailMsg.edit({ embeds: [embed] });
             } else {
+                if (this.curStatus === Status.DOWN) return;
                 this.detailMsg = await this.threadCh!.send({ embeds: [embed] });
             }
         }
@@ -131,7 +154,7 @@ export default class McsvStatus extends Handler {
         return new MessageEmbed({
             author: { name: '📄 伺服器資訊' },
             fields: [
-                { name: '線上人數', value: `${detail?.players.online} / ${detail?.players.max}`, inline: true },
+                { name: '線上人數\u2800\u2800', value: `${detail?.players.online} / ${detail?.players.max}`, inline: true },
                 { name: '延遲', value:  `${latencyIndicator} ${latency}ms`, inline: true },
                 { name: '\u200b', value: '\u200b', inline: true },
                 {
@@ -150,7 +173,7 @@ export default class McsvStatus extends Handler {
                         .map(g => g.join(', '))
                         .join('\n')
                         .slice(0, 1023)
-                        ?? 'N/A',
+                        || '無',
                     inline: true
                 },
                 {
