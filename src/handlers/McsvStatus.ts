@@ -10,7 +10,7 @@ import dns from "dns";
 import { promisify } from 'util';
 const dnsResolve = promisify(dns.resolve);
 
-const fetchDelay = 0.5; //min
+const fetchDelay = 1; //min
 
 enum Status { UP, DOWN }
 
@@ -54,38 +54,35 @@ export default class McsvStatus extends Handler {
             timeout: 1000 * 15,
             enableSRV: false
         };
+        
+        try {
+            const status = await util.status(host, 25565, options);
+            const query = await util.queryFull(host, 25565, options).catch(console.error) ?? undefined;
 
-        // Check the server IP to offset the difference in latency between clitnt and player.
-        // If serverIP equal to reverseProxyIP => Reverse proxy, add about 45ms(proxy to player RTT)*.
-        // * Cilent and Proxy are on the same machine.
-        // Using proxy:     player <──45ms + localLatency──> proxy/client <──45ms + localLatency──> server
-        // Not using proxy: player <──localLatency──> server, clint <──45ms + localLatency──> server
-        let offset = 0;
-        if (reverseProxyHost) {
-            try {
-                const serverIP = await dnsResolve(host);
-                const reverseProxyIP = await dnsResolve(process.env.MC_REVERSE_PROXY_HOST!);
-                
-                offset = serverIP[0] === reverseProxyIP[0] ? 45 : -45 ;
-            } catch (err) {
-                console.error(err);
+            // Check the server IP to offset the difference in latency between clitnt and player.
+            // If serverIP equal to reverseProxyIP => Reverse proxy, add about 45ms(proxy to player RTT)*.
+            // * Cilent and Proxy are on the same machine.
+            // Using proxy:     player <──45ms + localLatency──> proxy/client <──45ms + localLatency──> server
+            // Not using proxy: player <──localLatency──> server, clint <──45ms + localLatency──> server
+            let offset = 0;
+            if (reverseProxyHost) {
+                try {
+                    const serverIP = await dnsResolve(host);
+                    const reverseProxyIP = await dnsResolve(process.env.MC_REVERSE_PROXY_HOST!);
+                    
+                    offset = serverIP[0] === reverseProxyIP[0] ? 45 : -45 ;
+                } catch (err) {
+                    console.error(err);
+                }
             }
-        }
-        
-        
-        util.status(host, 25565, options)
-            .then(async (result) => {
-                const res = await util.queryFull(host, 25565, options);
-                console.log(res);
 
-                this.handleStatus(Status.UP, res, result.roundTripLatency + offset);
-            })
-            .catch((err) => {
-                this.handleStatus(Status.DOWN);
-                if (err.message === 'Socket closed unexpectedly while waiting for data') return;
-                if (err.message === 'Timed out while retrieving server status') return;
-                console.error(err);
-            });
+            this.handleStatus(Status.UP, query, status.roundTripLatency + offset);
+        } catch(err: any) {
+            this.handleStatus(Status.DOWN);
+            if (err.message === 'Socket closed unexpectedly while waiting for data') return;
+            if (err.message === 'Timed out while retrieving server status') return;
+            console.error(err);
+        }
 
         setTimeout(() => this.checkStatus(), 1000 * 60 * fetchDelay);
     }
@@ -118,7 +115,7 @@ export default class McsvStatus extends Handler {
         if (!_.isEqual(prePlayers, curPlayers)) {
             const logout = this.perDetail?.players.list.filter(p => !this.curDetail?.players.list.includes(p)) ?? [];
             const login = this.curDetail?.players.list.filter(p => !this.perDetail?.players.list.includes(p)) ?? [];
-            console.log({ logout, login });
+            // console.log({ logout, login });
 
             for (const player of login) {
                 if (this.lastSeen.has(player)) this.lastSeen.delete(player);
