@@ -138,13 +138,13 @@ export default class McsvStatus extends Handler {
     private makeDetailEmbed(latency: number, detail?: FullQueryResponse) {
         const groupN = 3;
         const latencyIndicator =
-            latency >= 150 
+            latency >= 150
                 ? '\\🔴'
-                : latency >= 120 
+                : latency >= 120
                     ? '\\🟠'
-                    : latency >= 90
+                    : latency >= 80
                         ? '\\🟡'
-                        : latency >= 60
+                        : latency >= 30
                             ? '\\🟢'
                             : '\\🔵';
 
