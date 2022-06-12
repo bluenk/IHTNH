@@ -95,7 +95,10 @@ export default class McsvStatus extends Handler {
         this.curDetail = detail;
 
         // Edit thread title when server status changes.
+        let statusChanged = false;
         if (this.preStatus !== this.curStatus) {
+            statusChanged = true;
+
             if (this.threadCh?.archived) {
                 await this.threadCh.setArchived(false);
             }
@@ -115,7 +118,7 @@ export default class McsvStatus extends Handler {
         // Update embed when player list changes.
         const prePlayers = this.perDetail?.players.list.sort((a, b) => a.localeCompare(b));
         const curPlayers = this.curDetail?.players.list.sort((a, b) => a.localeCompare(b));
-        if (!_.isEqual(prePlayers, curPlayers)) {
+        if (!_.isEqual(prePlayers, curPlayers) || statusChanged) {
             const logout = this.perDetail?.players.list.filter(p => !this.curDetail?.players.list.includes(p)) ?? [];
             const login = this.curDetail?.players.list.filter(p => !this.perDetail?.players.list.includes(p)) ?? [];
             // console.log({ logout, login });
