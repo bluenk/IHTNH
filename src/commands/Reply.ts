@@ -1,4 +1,4 @@
-import { Collection, CommandInteraction, Formatters, Interaction, Message, MessageActionRow, MessageButton, MessageComponentInteraction, MessageEmbedOptions, MessageOptions, User } from "discord.js";
+import { ButtonInteraction, Collection, CommandInteraction, Formatters, Interaction, Message, MessageActionRow, MessageButton, MessageComponentInteraction, MessageEmbedOptions, MessageOptions, MessageSelectMenu, User } from "discord.js";
 import fetch from "node-fetch";
 import FormData from "form-data";
 import { log } from "../utils/logger";
@@ -6,8 +6,8 @@ import { Client } from "../structures/Client";
 import { Command } from "../structures/Command";
 import MessageEmbed from "../structures/MessageEmbed";
 import ReplyDb, { ReplyData } from "../models/ReplyDb";
-import { Model } from "mongoose";
-import { reject } from "lodash";
+import { Model, models } from "mongoose";
+import { reject, values } from "lodash";
 
 const { codeBlock, inlineCode, bold } = Formatters;
 
@@ -22,7 +22,8 @@ enum ErrorMessages {
     KEYWORD_EXIST = '此觸發詞已經在清單內，請勿重複添加。',
     KEYWORD_NOT_EXIST = '找不到此觸發詞，請確認輸入格式是否正確。',
     IMAGE_UPLOAD_FAILED = '圖片上傳失敗，請聯絡管理員處理。',
-    IMAGE_TOO_LARGE = '圖片檔案太大，上限為10MB。'
+    IMAGE_TOO_LARGE = '圖片檔案太大，上限為10MB。',
+    DB_UPDATE_FAILED = '操作失敗，資料庫更新失敗。'
 }
 type ErrorType = keyof typeof ErrorMessages;
 
@@ -117,51 +118,43 @@ export default class Reply extends Command {
             if (subCommand === SubCommand.NEW) {
                 content = msg.options.getString('url')!;
             }
-            if (subCommand === SubCommand.EDIT) {
-                // content = msg.options.getString('new_content')!;
-                // addMode = Object.values(AddCommandMode).find(v => v === msg.options.getString('mode')!);
-            }
-            // console.log(this.targetKeyword, this.content);
         }
 
         if (msg instanceof Message) {
             // console.log({ args });
-            if (args.length <= 2) return this.replyMsg.get(msg.id)!.edit(this.sendErr('ARGS_MISSING'));
-            if (!(Object.values(SubCommand).find(v => v === args[1]))) return this.replyMsg.get(msg.id)!.edit(this.sendErr('ARGS_MISSING'));
+            if (args.length < 3) return replyMsg.edit(this.sendErr('ARGS_MISSING'));
+            if (!(Object.values(SubCommand).find(v => v === args[1]))) return replyMsg.edit(this.sendErr('ARGS_MISSING'));
             subCommand = args[1];
             keyword = args[2];
 
-            if (args[3]) {
-                content = args[3];
-                // addMode = content.match(/(https?:\/\/[^ ]*)/) ? AddCommandMode.IMAGE : AddCommandMode.KEYWORD;
-            } else {
-                content = msg.attachments.first()?.url;
-                if (!content) return this.replyMsg.get(msg.id)!.edit(this.sendErr('ARGS_MISSING'));
+            if (subCommand === SubCommand.NEW) {
+                content = args[3] || msg.attachments.first()?.url;
+                if (!content) return replyMsg.edit(this.sendErr('ARGS_MISSING'));
                 if ((msg.attachments.first()?.size! / 1024 / 1024) > 10) return this.replyMsg.get(msg.id)?.edit(this.sendErr('IMAGE_TOO_LARGE'));
-                // addMode = AddCommandMode.IMAGE;
             }
         }
 
         const props: Props = {
             targetKeyword: keyword!,
-            // content: content!,
+            content,
             author:  'author' in msg ? msg.author : msg.user,
             replyMsg,
             model: new ReplyDb(this.client, msg.guildId).model
         };
 
-        // Check sub command mode.
-        if (subCommand === SubCommand.NEW) {
-            await this.new(props);
-        }
-        if (subCommand === SubCommand.EDIT) {
-            await this.edit(props);
+        switch (subCommand) {
+            case SubCommand.NEW:
+                await this.new(props);
+                break;
+            case SubCommand.EDIT:
+                await this.edit(props);
+                break;
         }
     }
 
     private async new(props: Props) {
-        const { model, targetKeyword, content, replyMsg } = props;
-        if (await this.checkKeywordExist(props)) {
+        const { replyMsg, targetKeyword } = props;
+        if (await this.checkKeywordExist(props, targetKeyword)) {
             replyMsg.edit({
                 content: this.sendErr('KEYWORD_EXIST'),
                 embeds: [await this.makeKeywordEmbed(props, 'conflict')]
@@ -177,8 +170,8 @@ export default class Reply extends Command {
     }
 
     private async edit(props: Props) {
-        const { author, replyMsg } = props;
-        if (!await this.checkKeywordExist(props)) {
+        const { author, replyMsg, targetKeyword } = props;
+        if (!await this.checkKeywordExist(props, targetKeyword)) {
             replyMsg.edit({
                 content: this.sendErr('KEYWORD_NOT_EXIST')
             });
@@ -188,25 +181,21 @@ export default class Reply extends Command {
         const btnRow = new MessageActionRow({
             components: [
                 new MessageButton({
-                    type: 'BUTTON',
                     style: 'PRIMARY',
                     customId: 'addKeyword',
                     label: '添加觸發詞'
                 }),
                 new MessageButton({
-                    type: 'BUTTON',
                     style: 'PRIMARY',
                     customId: 'addContent',
                     label: '添加圖片'
                 }),
                 new MessageButton({
-                    type: 'BUTTON',
                     style: 'DANGER',
                     customId: 'delete',
                     label: '刪除'
                 }),
                 new MessageButton({
-                    type: 'BUTTON',
                     style: 'SECONDARY',
                     customId: 'exit',
                     label: '✖️'
@@ -220,17 +209,13 @@ export default class Reply extends Command {
             components: [btnRow]
         });
 
-        const filter = (interaction: Interaction) => interaction.user.id == author.id;
-        const collector = menu?.createMessageComponentCollector({ filter, max: 1 });
-        const collected = await new Promise((resolve: (arg: MessageComponentInteraction) => void, reject) => {
-            collector?.once('end', c => resolve(c.first()!));
-        });
+        const collected = await this.handleComponents(menu, author);
 
-        menu?.edit({ components: [] });
+        await menu?.edit({ components: [new MessageActionRow({ components: [btnRow.components.pop()!] })] });
 
         switch(collected.customId) {
             case 'exit':
-                await menu?.edit({ content: '編輯已結束' });
+                await this.endMenu(menu);
                 break;
                 
             case 'addKeyword':
@@ -248,12 +233,22 @@ export default class Reply extends Command {
         const { author, replyMsg } = props;
 
         const askMsg = await replyMsg.channel.send('請回覆要添加的內容:');
-        const collected = await askMsg.channel.awaitMessages({ filter: msg => msg.author === author, max: 1 });
+        const collected = await Promise.race([
+            askMsg.channel.awaitMessages({ filter: msg => msg.author === author, max: 1 }),
+            this.handleComponents(replyMsg, author)
+        ])
+        if (collected instanceof Interaction) {
+            askMsg.delete();
+            this.endMenu(replyMsg);
+            return;
+        } else {
+            replyMsg.edit({ components: [] });
+        }
         const resMsg = collected.first()!;
 
         let dbRes: boolean = false;
         if (mode === 'addContent') {
-            props.content = resMsg.content;
+            props.content = resMsg.content || resMsg.attachments.first()?.url;
 
             const correct = await this.handleCheckMenu(props, askMsg);
             if (!correct) return;
@@ -272,22 +267,98 @@ export default class Reply extends Command {
             }, props);
         }
         if (mode === 'addKeyword') {
+            if (await this.checkKeywordExist(props, resMsg.content)) {
+                replyMsg.edit({ content: this.sendErr('KEYWORD_EXIST') });
+                askMsg.delete();
+                return;
+            }
             dbRes = await this.updateData(resMsg.content, props);
         }
 
-        if (dbRes) {
-            replyMsg.edit({
-                content: '\\✔️ | 操作成功，觸發詞已更新。',
-                embeds: [await this.makeKeywordEmbed(props, 'preview')]
-            });
-        }
-        
+
+        replyMsg.edit({
+            content: dbRes ? '\\✔️ | 操作成功，觸發詞已更新。' : this.sendErr('DB_UPDATE_FAILED'),
+            embeds: [await this.makeKeywordEmbed(props, 'preview')],
+            components: []
+        });
+
         askMsg.delete();
         resMsg.delete();
     }
 
     private async delete(props: Props) {
-        
+        const { replyMsg, model, targetKeyword, author } = props;
+
+        const doc = await model.findOne({ keyword: targetKeyword });
+        if (!doc) return;
+        const noOptions = doc.keyword.length + doc.response.length === 2;
+
+        const seleteRow = new MessageActionRow({
+            components: [
+                new MessageSelectMenu({
+                    customId: 'list',
+                    maxValues: 1,
+                    options: [
+                        ...doc.keyword.map(v => { return { label: v, value: v }  }),
+                        ...doc.response.map(v => { return { label: v.url, value: v.url }  })
+                    ]
+                })
+            ]
+        });
+        const optionsRow = new MessageActionRow({
+            components: [
+                new MessageButton({
+                    style: 'DANGER',
+                    customId: 'deleteAll',
+                    label: '全部刪除',
+                    emoji: '⚠️'
+                }),
+                ...replyMsg.components[0].components
+            ]
+        });
+        const rows = noOptions ? [optionsRow] : [optionsRow, seleteRow];
+
+        await replyMsg.edit({
+            content: noOptions ? '觸發詞與圖片無多餘選項時，將刪除**整個**觸發詞' : '請選擇要刪除的項目',
+            components: rows
+        });
+
+        const collected = await this.handleComponents(replyMsg, author);
+
+        let deletePart;
+        let showPreview = true;
+        if (collected.isSelectMenu()) {
+            const value = collected.values[0];
+            if (this.isURL(value)) {
+                const { deleteHash } = doc.response.find(v => v.url === value)!;
+
+                deletePart = `圖片 \`${value}\` `;
+                await this.deleteImgur(deleteHash);
+                await doc.updateOne({ $pull: { response: { url: value } } });
+            } else {
+                deletePart = `觸發詞 \`${value}\``;
+                await doc.updateOne({ $pull: { keyword: value } });
+            }
+        } else {
+            switch(collected.customId) {
+                case 'deleteAll':
+                    showPreview = false
+                    deletePart = `觸發詞 \`${targetKeyword}\` 整體`;
+                    doc.response.forEach(v => this.deleteImgur(v.deleteHash));
+                    await doc.remove();
+                    break;
+
+                case 'exit':
+                    this.endMenu(replyMsg);
+                    return;
+            }
+        }
+
+        replyMsg.edit({
+            content: `\\✔️ | ${deletePart}已移除。`,
+            embeds: showPreview ? [await this.makeKeywordEmbed(props, 'preview')] : [],
+            components: []
+        })
     }
 
     private handleCheckMenu(props: Props, editMsg: Message): Promise<boolean> {
@@ -326,6 +397,18 @@ export default class Reply extends Command {
                 })
                 .then(m => setTimeout(() => m.delete(), 5000));
                 resolve(false);
+            });
+        });
+    }
+
+    private async handleComponents(menu: Message, author: User) {
+        const filter = (interaction: Interaction) => interaction.user.id === author.id;
+        const collector = menu?.createMessageComponentCollector({ filter, max: 1 });
+
+        return new Promise((resolve: (arg: MessageComponentInteraction) => void, reject) => {
+            collector?.once('collect', c => {
+                c.deferUpdate();
+                resolve(c);
             });
         });
     }
@@ -383,6 +466,23 @@ export default class Reply extends Command {
         }
     }
 
+    private async deleteImgur(deleteHash: string): Promise<void> {
+        const url = 'https://api.imgur.com/3/image/' + deleteHash;
+
+        try {
+            const res = await fetch(url, {
+                method: 'DELETE',
+                headers: {
+                    Authorization: 'Client-ID ' + process.env.IMGUR_CLIENT_ID
+                }
+            });
+            const body = await res.json();
+            if (!body.success) throw body;
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
     private async appendData(imgurRes: ImgurResData, props: Props) {
         const { model, targetKeyword, author } = props;
         return new model({
@@ -413,9 +513,9 @@ export default class Reply extends Command {
         }
     }
 
-    private async checkKeywordExist(props: Props) {
-        const { model, targetKeyword } = props;
-        const doc = await model.exists({ keyword: targetKeyword });
+    private async checkKeywordExist(props: Props, keyword: string) {
+        const { model } = props;
+        const doc = await model.exists({ keyword });
         
         return doc ? true : false;
     }
@@ -450,7 +550,7 @@ export default class Reply extends Command {
         switch(type) {
             case 'preview':
                 embedOptions = {
-                    author: { name: '觸發詞預覽' },
+                    author: { name: '🔍 觸發詞預覽' },
                     fields: [
                         ...defaultOptions.fields!,
                         {
@@ -472,12 +572,19 @@ export default class Reply extends Command {
         return new MessageEmbed({ ...defaultOptions, ...embedOptions });
     }
 
+    private async endMenu(menu: Message) {
+        await menu.edit({
+            content: '編輯已結束',
+            components: []
+        })
+    }
+
     private sendErr(type: ErrorType) {
         const hint =
-            codeBlock('用法: i.reply <new|add> <關鍵字> [圖片網址]') + '\n' +
+            codeBlock('用法: i.reply <new|edit> <關鍵字> [圖片網址]') + '\n' +
             `註: <>為必填 []為選擇性 |為或者，使用 ${inlineCode('i.help reply')} 以獲得更多資訊。`;
 
-        return '\\⛔ | ' + ErrorMessages[type] +
+        return '\\❌ | ' + ErrorMessages[type] +
             (type === 'ARGS_MISSING' ? '\n' + hint : '');
     }
 }
