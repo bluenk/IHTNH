@@ -100,7 +100,7 @@ export default class McsvStatus extends Handler {
             }
 
             if (this.curStatus ===  Status.UP) {
-                this.threadCh?.edit({ name: '🟢伺服器狀態-線上 ' });
+                await this.threadCh?.edit({ name: '🟢伺服器狀態-線上 ' });
             } else {
                 this.threadCh?.edit({ name: '🔴伺服器狀態-停止 ' });
                 this.detailMsg?.delete();
