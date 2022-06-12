@@ -12,7 +12,7 @@ const dnsResolve = promisify(dns.resolve);
 
 const fetchDelay = 1; //min
 
-enum Status { UP, DOWN }
+enum Status { UP = 'up', DOWN = 'down' }
 
 export default class McsvStatus extends Handler {
     private curStatus: Status = Status.DOWN;
@@ -79,15 +79,16 @@ export default class McsvStatus extends Handler {
             this.handleStatus(Status.UP, query, status.roundTripLatency + offset);
         } catch(err: any) {
             this.handleStatus(Status.DOWN);
+
             if (err.message === 'Socket closed unexpectedly while waiting for data') return;
             if (err.message === 'Timed out while retrieving server status') return;
             console.error(err);
         }
-
-        setTimeout(() => this.checkStatus(), 1000 * 60 * fetchDelay);
     }
-
+    
     private async handleStatus(newStatus: Status, detail?: FullQueryResponse, latency?: number) {
+        setTimeout(() => this.checkStatus(), 1000 * 60 * fetchDelay);
+
         this.preStatus = this.curStatus;
         this.curStatus = newStatus;
         this.perDetail = this.curDetail;
@@ -99,7 +100,7 @@ export default class McsvStatus extends Handler {
                 await this.threadCh.setArchived(false);
             }
 
-            if (this.curStatus ===  Status.UP) {
+            if (this.curStatus === Status.UP) {
                 await this.threadCh?.edit({ name: '🟢伺服器狀態-線上 ' });
             } else {
                 this.threadCh?.edit({ name: '🔴伺服器狀態-停止 ' });
@@ -107,6 +108,8 @@ export default class McsvStatus extends Handler {
                 this.detailMsg = null;
                 this.lastSeen.clear();
             }
+
+            log(`Server is ${this.curStatus} now.`, this.options.info.name);
         }
 
         // Update embed when player list changes.
