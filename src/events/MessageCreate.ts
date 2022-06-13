@@ -27,7 +27,7 @@ export default class MessageCreate extends Event {
 
         // Handle prefix commands.
         if (hasPrefix && this.client.commands.collection.has(args[0].toLowerCase())) {
-            log(`keyword matched: ${args[0]}`, this.name);
+            log(`User ${msg.author.tag} has triggered the ${args[0]} command.`, this.name);
             const command = this.client.commands.collection.get(args[0].toLowerCase());
             if (command?.options.info.enable) {
                 command.run(msg, args);
@@ -44,12 +44,11 @@ export default class MessageCreate extends Event {
             log(`Keyword '${res.keyword}' matched.`);
             const img = res.response[random(0, res.response.length - 1)].url;
             const sended = await msg.channel.send(img);
-            // console.log(sended.embeds);
+
             setTimeout(() => {
-                // console.log('after timeout:', sended.embeds);
                 if (!sended.embeds.length) {
-                    log('Imgur link preview failed, fallback to upload method.')
-                    sended.edit({ content: ' ', files: [img] })
+                    log('Imgur link preview failed, fallback to upload method.');
+                    sended.edit({ content: ' ', files: [img] });
                 }
             }, 1500)
         }
