@@ -582,6 +582,7 @@ export default class Reply extends Command {
     private sendErr(type: ErrorType) {
         const hint =
             codeBlock('用法: i.reply <new|edit> <關鍵字> [圖片網址]') + '\n' +
+            '常常打錯指令嗎？又或者忘記指令怎麼打嗎？斜線指令或許正適合你，在對話框輸入\`/\`試試看吧！\n\n' +
             `註: <>為必填 []為選擇性 |為或者，使用 ${inlineCode('i.help reply')} 以獲得更多資訊。`;
 
         return '\\❌ | ' + ErrorMessages[type] +
