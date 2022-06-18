@@ -7,8 +7,10 @@ import { FullQueryResponse } from "minecraft-server-util";
 import { log } from "../utils/logger";
 import _ from "lodash";
 import dns from "dns";
-import { promisify } from 'util';
+import { promisify } from "util";
+import { exec } from "child_process";
 const dnsResolve = promisify(dns.resolve);
+const execSync = promisify(exec);
 
 const fetchDelay = 1; //min
 
@@ -54,23 +56,27 @@ export default class McsvStatus extends Handler {
             timeout: 1000 * 15,
             enableSRV: false
         };
+
+        const pingRes = await execSync('ping khv3-1.speedtest.idv.tw -c 3 -q');
+        const avg = parseFloat(pingRes.stdout.split('=')[1].split('/')[1]);
+        const c2pPing = Math.round(avg);
         
         try {
             const status = await util.status(host, 25565, options);
             const query = await util.queryFull(host, 25565, options).catch(console.error) ?? undefined;
 
             // Check the server IP to offset the difference in latency between clitnt and player.
-            // If serverIP equal to reverseProxyIP => Reverse proxy, add about 45ms(proxy to player RTT)*.
+            // If serverIP equal to reverseProxyIP => Reverse proxy.*
             // * Cilent and Proxy are on the same machine.
-            // Using proxy:     player <──45ms + localLatency──> proxy/client <──45ms + localLatency──> server
-            // Not using proxy: player <──localLatency──> server, clint <──45ms + localLatency──> server
+            // Using proxy:     player <──c2pPing + localLatency──> proxy/client <──c2pPing + localLatency──> server
+            // Not using proxy: player <──localLatency──> server, clint <──c2pPing + localLatency──> server
             let offset = 0;
             if (reverseProxyHost) {
                 try {
                     const serverIP = await dnsResolve(host);
                     const reverseProxyIP = await dnsResolve(process.env.MC_REVERSE_PROXY_HOST!);
                     
-                    offset = serverIP[0] === reverseProxyIP[0] ? 45 : -45 ;
+                    offset = serverIP[0] === reverseProxyIP[0] ? c2pPing : -c2pPing ;
                 } catch (err) {
                     console.error(err);
                 }
