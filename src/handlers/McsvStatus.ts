@@ -13,6 +13,7 @@ const dnsResolve = promisify(dns.resolve);
 const execSync = promisify(exec);
 
 const fetchDelay = 1; //min
+let downDetected = 0;
 
 enum Status { UP = 'up', DOWN = 'down' }
 
@@ -110,8 +111,12 @@ export default class McsvStatus extends Handler {
             }
 
             if (this.curStatus === Status.UP) {
+                downDetected = 0;
                 await this.threadCh?.edit({ name: '🟢伺服器狀態-線上 ' });
             } else {
+                downDetected++;
+                if (downDetected < 3) return;
+
                 this.threadCh?.edit({ name: '🔴伺服器狀態-停止 ' });
                 this.detailMsg?.delete();
                 this.detailMsg = null;
