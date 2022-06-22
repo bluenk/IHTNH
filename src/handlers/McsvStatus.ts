@@ -58,8 +58,8 @@ export default class McsvStatus extends Handler {
             enableSRV: false
         };
 
-        const pingRes = await execSync('ping khv3-1.speedtest.idv.tw -c 3 -q');
-        const avg = parseFloat(pingRes.stdout.split('=')[1].split('/')[1]);
+        const pingRes = await execSync('ping khv3-1.speedtest.idv.tw -c 3 -q').catch(console.error);
+        const avg = parseFloat(pingRes?.stdout.split('=')[1].split('/')[1] ?? '0');
         const c2pPing = Math.round(avg);
         
         try {
@@ -101,14 +101,14 @@ export default class McsvStatus extends Handler {
         this.perDetail = this.curDetail;
         this.curDetail = detail;
 
+        if (this.threadCh?.archived) {
+            await this.threadCh.setArchived(false);
+        }
+
         // Edit thread title when server status changes.
         let statusChanged = false;
         if (this.preStatus !== this.curStatus) {
             statusChanged = true;
-
-            if (this.threadCh?.archived) {
-                await this.threadCh.setArchived(false);
-            }
 
             if (this.curStatus === Status.UP) {
                 downDetected = 0;
