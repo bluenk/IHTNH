@@ -1,10 +1,11 @@
-import { Collection, Interaction, Message, MessageActionRow, MessageButton, MessageOptions } from "discord.js";
+import { Collection, Interaction, Message, MessageActionRow, MessageButton, MessageFlags, MessageOptions } from "discord.js";
 import { Client } from "../structures/Client";
 import { Handler } from "../structures/Handler";
 import extractURL from "../utils/extractURL";
 import fetch from "node-fetch";
 import { log } from "../utils/logger";
 import MessageEmbed from "../structures/MessageEmbed";
+import urlMetadata from "url-metadata";
 
 const embedCheckDelay = 3; //sec
 const embedDeleteTimeout = 0.5; //min
@@ -65,7 +66,7 @@ export default class PreviewFix extends Handler {
             info: {
                 name: 'previewFix',
                 fullName: '連結預覽修正',
-                detail: '為預覽失效的連結補上預覽，目前支援Twitter。',
+                detail: '為預覽失效或缺乏資訊的連結補上預覽，目前支援Twitter與LineToday(liff)。',
                 enable: true
             }
         })
@@ -74,7 +75,7 @@ export default class PreviewFix extends Handler {
     public execute(): void {}
 
     public async run(msg: Message<boolean>): Promise<void> {
-        // When origin message got deleted, Delete the repaired msg too.
+        // When original message got deleted, Delete the repaired msg too.
         if (!msg.deletable && this.repairedMsg.some(i => i.originId === msg.id)) {
             const repairedMsgId = this.repairedMsg.find(i => i.originId === msg.id)!.repairedId;
             const repairedMsg = await msg.channel.messages.fetch(repairedMsgId);
@@ -83,29 +84,41 @@ export default class PreviewFix extends Handler {
             return;
         }
 
-        const urls = extractURL(msg.content);
-        const twitterUrls = urls
-            .map(str =>  new URL(str))
-            .filter(url => url.hostname === 'twitter.com')
-        
-        if (!twitterUrls.length) return;
+        // Skip if message is mark as spoiler.
         if (msg.content.match(/\|\|(?:.|\n)*\|\|/g)) return;
-        
+
+        const urls = extractURL(msg.content).map(str =>  new URL(str));
+        const twitterUrls = urls.filter(url => url.hostname === 'twitter.com');
+        const lineTodayUrls = urls.filter(url => url.hostname === 'liff.line.me');
+        console.log(urls)
+
         setTimeout(async () => {
             if (!msg.deletable) return;
             
-            const needFix = twitterUrls.filter(url => !msg.embeds.find((v) => v.url === url.href));
+            const needFix = [
+                ...twitterUrls
+                    .filter(url => !msg.embeds.find((v) => v.url === url.href))
+                    .filter(url => Boolean(url.pathname.split('/')[3])),
+                ...lineTodayUrls
+            ];
             // console.log(msg.embeds, {needFix});
             if (!needFix.length) return;
-            
-            const tweetIds = needFix.map(url => url.pathname.split('/')[3]).filter(Boolean);
-            if (!tweetIds.length) return;
-            
-            log(tweetIds.length + ' tweet preview failures detected. Fixing...', this.options.info.name);
-            const data = await this.fetchTweetLookup(tweetIds);
-            if (!data) return;
 
-            // console.log({tweetIds}, JSON.stringify(data, null, 2));
+            let msgOptions: MessageOptions = { embeds: [], files: [] };
+            if (needFix.some(v => twitterUrls.includes(v))) {
+                const data = await this.fixTwitter(msg, twitterUrls);
+                msgOptions = {
+                    embeds: [...msgOptions.embeds!, ...data.embeds || []],
+                    files: [...msgOptions.files!, ...data.files || []]
+                };
+            }
+            if (needFix.some(v => lineTodayUrls.includes(v))) {
+                const data = await this.fixLineToday(msg, lineTodayUrls);
+                msgOptions = {
+                    embeds: [...msgOptions.embeds!, ...data.embeds || []]
+                };
+            }
+
             const btnActionRow = new MessageActionRow({
                 components: [
                     new MessageButton({
@@ -116,12 +129,13 @@ export default class PreviewFix extends Handler {
                 ] 
             });
             const replyMsg = await msg.reply({
-                ...this.makeEmbeds(data),
+                ...msgOptions,
                 allowedMentions: { repliedUser: false },
                 components: [btnActionRow]
             });
-            this.queueAdd(msg.id, replyMsg.id);
 
+            this.queueAdd(msg.id, replyMsg.id);
+            
             const filter = (i: Interaction) => i.user.id === msg.author.id;
             replyMsg.awaitMessageComponent({ filter, time: embedDeleteTimeout * 60 * 1000 })
                 .then(i => {
@@ -135,11 +149,51 @@ export default class PreviewFix extends Handler {
                     } else {
                         log(err, this.options.info.name);
                     }
-            });
+                });
         }, embedCheckDelay * 1000)
     }
 
-    private makeEmbeds(tweetsData: TweetLookupData): MessageOptions {
+    private async fixLineToday(msg: Message, lineTodayUrls: URL[]) {
+        return {
+            embeds: (await Promise.all(
+                lineTodayUrls.map(async url => {
+                    const modifiedPath = url.pathname.split('/').slice(3).join('/');
+                    const redirectUrl = 'https://today.line.me/tw/' + modifiedPath;
+                    try {
+                        const res = await urlMetadata(redirectUrl);
+                        return this.makeLineTodayEmbed(res);
+                    } catch(err) {
+                        console.error(err);
+                    }
+                })
+            ))
+            .filter(Boolean) as MessageEmbed[]
+        }
+    }
+        
+    private makeLineTodayEmbed(data: urlMetadata.Result) {
+        const { publisher, datePublished, author, headline, description, image } = data.jsonld;
+        return new MessageEmbed({
+            url: data.url,
+            author: { name: publisher.name },
+            title: headline,
+            description,
+            thumbnail: { url: image },
+            footer: { text: author.name },
+            timestamp: new Date(datePublished)
+        });
+    }
+
+    private async fixTwitter(msg: Message, twitterUrls: URL[]) {
+        log(twitterUrls.length + ' tweet preview failures detected. Fixing...', this.options.info.name);
+        const tweetIds = twitterUrls.map(url => url.pathname.split('/')[3]);
+        const data = await this.fetchTweetLookup(tweetIds);
+
+        // console.log({tweetIds}, JSON.stringify(data, null, 2));
+        return this.makeTweetEmbeds(data);
+    }
+
+    private makeTweetEmbeds(tweetsData: TweetLookupData): MessageOptions {
         let embeds: MessageEmbed[] = [];
         let files: string[] = [];
         for (const data of tweetsData.data) {
@@ -187,7 +241,7 @@ export default class PreviewFix extends Handler {
         return { embeds, files };
     }
     
-    private async fetchTweetLookup(tweetIds: string[]): Promise<TweetLookupData | void> {
+    private async fetchTweetLookup(tweetIds: string[]) {
         const tweetLookupURL = 
             'https://api.twitter.com/2/tweets' + 
             '?ids=' + tweetIds +
@@ -199,7 +253,7 @@ export default class PreviewFix extends Handler {
         const tweetShowURL = (id: string) => 'https://api.twitter.com/1.1/statuses/show.json?id=' + id;
 
         const data = await this.fetchTwitter(tweetLookupURL);
-        if (!data) return;
+        if (!data) throw log(Error('Faild to fetch twitter api!'), this.options.info.name);
 
         
         const videoMediaKeys = data.includes.media.filter(m => m.type === 'video');
