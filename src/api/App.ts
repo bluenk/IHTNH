@@ -7,12 +7,15 @@ import { log } from '../utils/logger';
 
 export default class App {
     private readonly app;
+    private readonly port = 5000;
+    private readonly host = process.env.NODE_ENV === 'pro' ? 'localhost' : '192.168.10.2';
+    
     public constructor(public client: Client) {
         this.app = express();
     }
 
     public async start() {
-        this.app.listen(5000, () =>  log('Start listening...', 'App'));
+        this.app.listen(this.port, this.host, () => log('Start listening...', 'App'));
 
         this.app.use(morgan('dev'));
         this.app.use(xmlPraser());
