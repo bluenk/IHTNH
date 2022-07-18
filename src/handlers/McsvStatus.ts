@@ -109,21 +109,28 @@ export default class McsvStatus extends Handler {
         let statusChanged = false;
         if (this.preStatus !== this.curStatus) {
             statusChanged = true;
+        }
 
-            if (this.curStatus === Status.UP) {
-                downDetected = 0;
-                await this.threadCh?.edit({ name: '🟢伺服器狀態-線上 ' });
-            } else {
-                downDetected++;
-                if (downDetected < 3) return;
-
-                this.threadCh?.edit({ name: '🔴伺服器狀態-停止 ' });
-                this.detailMsg?.delete();
-                this.detailMsg = null;
-                this.lastSeen.clear();
-            }
-
+        // When server down.
+        if (this.curStatus === Status.DOWN && downDetected <= 5) {
             log(`Server is ${this.curStatus} now.`, this.options.info.name);
+
+            this.threadCh?.edit({ name: '🔴伺服器狀態-停止 ' });
+            this.detailMsg?.delete();
+            this.detailMsg = null;
+            this.lastSeen.clear();
+        }
+
+        // When server up.
+        if (this.curStatus === Status.UP && statusChanged) {
+            log(`Server is ${this.curStatus} now.`, this.options.info.name);
+            await this.threadCh?.edit({ name: '🟢伺服器狀態-線上 ' });
+        }
+
+        if (this.curStatus === Status.UP) {
+            downDetected = 0;
+        } else {
+            downDetected++;
         }
 
         // Update embed when player list changes.
