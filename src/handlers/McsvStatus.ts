@@ -112,7 +112,7 @@ export default class McsvStatus extends Handler {
         }
 
         // When server down.
-        if (this.curStatus === Status.DOWN && downDetected <= 5) {
+        if (this.curStatus === Status.DOWN && downDetected >= 5) {
             log(`Server is ${this.curStatus} now.`, this.options.info.name);
 
             this.threadCh?.edit({ name: '🔴伺服器狀態-停止 ' });
