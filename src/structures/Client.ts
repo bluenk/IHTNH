@@ -10,7 +10,6 @@ import EventLoader from "../utils/EventLoader";
 import CommandLoader from "../utils/CommandLoader";
 import ConnectDb from "../utils/ConnectDb";
 import App from "../api/App";
-import { DiscordTogether } from "discord-together";
 import HandlerLoader from "../utils/HandlerLoader";
 
 export interface ReplyKeywords {
@@ -23,7 +22,6 @@ export class Client extends DiscordClient {
     public readonly handlers = new HandlerLoader(this);
     public readonly db = new ConnectDb();
     public readonly app = new App(this);
-    public discordTogether: DiscordTogether<{[x: string]: string}> | undefined;
 
     public constructor(options: ClientOptions) {
         super(options);
