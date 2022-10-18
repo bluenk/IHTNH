@@ -58,7 +58,7 @@ export default class McsvStatus extends Handler {
             enableSRV: false
         };
 
-        const pingRes = await execSync('ping khv3-1.speedtest.idv.tw -c 3 -q').catch(console.error);
+        const pingRes = await execSync('ping khv3-1.speedtest.idv.tw -c 3 -q').catch();
         const avg = parseFloat(pingRes?.stdout.split('=')[1].split('/')[1] ?? '0');
         const c2pPing = Math.round(avg);
         
