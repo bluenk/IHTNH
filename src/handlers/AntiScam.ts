@@ -4,7 +4,7 @@ import { join } from 'path';
 import fetch from 'node-fetch';
 import { Client } from "../structures/Client";
 import { Handler } from "../structures/Handler";
-import MessageEmbed from '../structures/MessageEmbed';
+import EmbedBuilder from '../structures/EmbedBuilder';
 import { log } from "../utils/logger";
 import extractURL from '../utils/extractURL';
 
@@ -48,12 +48,12 @@ export default class AntiScam extends Handler {
                 msg.delete().then((thisMsg) => {
                     log(`Message has been deleted\n`, this.options.info.name);
                     this.client.channels.fetch(thisMsg.channelId).then(ch => {
-                        if (!ch?.isText() || ch.partial || ch instanceof DMChannel) return;
+                        if (!ch?.isTextBased() || ch.partial || ch instanceof DMChannel) return;
                         if (this.badUsers.some(userId => thisMsg.author.id === userId)) {
                             log('Scam bot comfirmed, kick user.', this.options.info.name);
                             ch.send({
                                 embeds: [
-                                    new MessageEmbed({
+                                    new EmbedBuilder({
                                         title: `自動踢除`,
                                         fields: [
                                             { name: '使用者', value: thisMsg.author.tag, inline: true },

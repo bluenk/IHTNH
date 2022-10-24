@@ -21,13 +21,14 @@ export default class MessageCreate extends Event {
 
         const args = msg.content.substring(2).split(' ');
 
+        // console.log({args, content: msg.content});
         // if (hasPrefix && args[0] === 'ping') {
         //     msg.reply('pong!');
         // }
 
         // Handle prefix commands.
         if (hasPrefix && this.client.commands.collection.has(args[0].toLowerCase())) {
-            log(`User ${msg.author.tag} has triggered the ${args[0]} command.`, this.name);
+            log(`User ${msg.author.tag} has triggered the ${args[0]} command. => args: ${args}`, this.name);
             const command = this.client.commands.collection.get(args[0].toLowerCase());
             if (command?.options.info.enable) {
                 command.run(msg, args);

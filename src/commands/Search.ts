@@ -1,25 +1,25 @@
 import {
     Collection,
-    CommandInteraction,
-    ContextMenuInteraction,
+    ChatInputCommandInteraction,
+    ContextMenuCommandInteraction,
     DMChannel,
     EmbedFooterData,
     Formatters,
     Interaction,
     InteractionUpdateOptions,
     Message,
-    MessageActionRow,
-    MessageButton,
+    ActionRowBuilder,
+    ButtonBuilder,
     MessageComponentInteraction,
-    MessageOptions,
-    TextChannel,
-    ThreadChannel
+    ApplicationCommandType,
+    ApplicationCommandOptionType,
+    ButtonStyle
 } from "discord.js";
 import sagiri, { SagiriResult } from "sagiri";
 import { log } from "../utils/logger";
 import { Client } from "../structures/Client";
 import { Command } from "../structures/Command";
-import MessageEmbed from "../structures/MessageEmbed";
+import EmbedBuilder from "../structures/EmbedBuilder";
 const SC = sagiri(process.env.SAUCENAO_TOKEN!);
 
 type SagiriResultFix = SagiriResult & {
@@ -39,7 +39,7 @@ type ErrorType = keyof typeof ErrorMessages;
 
 export default class Search extends Command {
     private url: string | undefined;
-    // private msg: Collection<string, Message | CommandInteraction | ContextMenuInteraction> = new Collection();
+    // private msg: Collection<string, Message | ChatInputCommandInteraction | ContextMenuCommandInteraction> = new Collection();
 
     public constructor(public client: Client) {
         super(client, {
@@ -56,12 +56,12 @@ export default class Search extends Command {
             },
             commandOptions: [
                 {
-                    type: 'CHAT_INPUT',
+                    type: ApplicationCommandType.ChatInput,
                     name: 'search',
                     description: '圖片搜尋',
                     options: [
                         {
-                            type: 'STRING',
+                            type: ApplicationCommandOptionType.String,
                             name: 'url',
                             description: '圖片網址',
                             required: true
@@ -69,19 +69,19 @@ export default class Search extends Command {
                     ]
                 },
                 {
-                    type: 'MESSAGE',
+                    type: ApplicationCommandType.Message,
                     name: '以圖搜圖(SauceNao)'
                 }
             ]
         })
     }
 
-    public async run(msg: CommandInteraction | ContextMenuInteraction | Message, args: string[]) {
+    public async run(msg: ChatInputCommandInteraction | ContextMenuCommandInteraction | Message, args: string[]) {
         // this.msg.set(msg.id, msg);
 
         const replyOptions = {
             content: '處理中...',
-            ephemeral: msg instanceof ContextMenuInteraction,
+            ephemeral: msg instanceof ContextMenuCommandInteraction,
             fetchReply: true
         }
 
@@ -93,16 +93,11 @@ export default class Search extends Command {
         }
 
         // Get the image url.
-        if (msg instanceof CommandInteraction) {
+        if (msg instanceof ChatInputCommandInteraction) {
             this.url = msg.options.getString('url')!;
         }
-        if (msg instanceof ContextMenuInteraction) {
-            const targetMsg = await this.client.channels.fetch(msg.channelId)
-                .then(channel => {
-                    if (channel?.isText()) {
-                        return channel.messages.fetch(msg.targetId);
-                    }
-                });
+        if (msg instanceof ContextMenuCommandInteraction) {
+            const targetMsg = await msg.channel?.messages.fetch(msg.targetId);
             if (!targetMsg) return this.replyMsg.get(msg.id)?.edit(this.sendErr('URL_NOT_FOUND'));
 
             this.url =
@@ -117,26 +112,27 @@ export default class Search extends Command {
         // Make sure the url is vaild.
         if (this.isURL(this.url)) {
             this.handleSearch(this.url!, msg);
-            log(`User ${msg.member?.user.username} trigger this command by an ${msg.type} message.`, this.options.info.name);
         } else {
             await this.editReply({ content: this.sendErr(this.url === undefined ? 'URL_NOT_FOUND' : 'URL_INCORRECT') }, msg);
             this.replyMsg.delete(msg.id);
         }
     }
 
-    private async handleSearch(url: string, msg: CommandInteraction | ContextMenuInteraction | Message) {
+    private async handleSearch(url: string, msg: ChatInputCommandInteraction | ContextMenuCommandInteraction | Message) {
         const buttons = [
-            new MessageButton()
-                .setCustomId('previous')
-                .setLabel('<')
-                .setStyle('SECONDARY')
-                .setDisabled(true),
-            new MessageButton()
-                .setCustomId('next')
-                .setLabel('>')
-                .setStyle('SECONDARY')
+            new ButtonBuilder({
+                customId: 'previous',
+                label: '<',
+                style: ButtonStyle.Secondary,
+                disabled: true
+            }),
+            new ButtonBuilder({
+                customId: 'next',
+                label: '>',
+                style: ButtonStyle.Secondary
+            })
         ]
-        const row = new MessageActionRow().addComponents(buttons);
+        const row = new ActionRowBuilder<ButtonBuilder>({ components: buttons });
 
         let index = 0;
         const resultEmbeds = await this.makeEmbeds(url);
@@ -168,18 +164,23 @@ export default class Search extends Command {
             }
             updateOptions.components = [row];
 
-            if (!(updateOptions.embeds![0] instanceof MessageEmbed)) return;
+            if (!(updateOptions.embeds![0] instanceof EmbedBuilder)) return;
             updateOptions.embeds![0].setFooter(this.footerOptions(index, resultEmbeds.length));
             interaction.update(updateOptions);
         });
 
-        collector.once('end', () => {
+        collector.once('end', async () => {
             row.components.forEach(btn => btn.setDisabled(true));
+            const menuEmbed = (await this.replyMsg.get(msg.id)!.fetch()).embeds[0];
+            console.log(menuEmbed);
             this.editReply({
-                embeds: [this.replyMsg?.get(msg.id)?.embeds[0].setFooter({
-                    ...this.footerOptions(index, resultEmbeds.length),
-                    text: this.replyMsg.get(msg.id)!.embeds[0].footer!.text += '  |  已過期'
-                })!],
+                embeds: [
+                    EmbedBuilder.from(menuEmbed)
+                        .setFooter({
+                            ...this.footerOptions(index, resultEmbeds.length),
+                            text: menuEmbed.footer!.text += '  |  已過期'
+                    })!
+                ],
                 components: [row]
             }, msg);
             this.replyMsg.delete(msg.id);
@@ -304,13 +305,16 @@ export default class Search extends Command {
                 break;
         }
 
-        return new MessageEmbed()
-            .setTitle(title ? title : 'Sauce found ?')
-            .setURL(titelUrl ? titelUrl : '')
-            .setDescription(`Found at ${result.site} (${result.url})` + description)
-            .addField('相似度', result.similarity + '%', true)
-            .addField('作者', author ? author : '未知', true)
-            .setThumbnail(result.thumbnail)
+        return new EmbedBuilder({
+            title: title ?? 'Sauce found ?',
+            url: titelUrl ?? '',
+            description: `Found at ${result.site} (${result.url})` + description,
+            fields: [
+                { name: '相似度', value: result.similarity + '%', inline: true },
+                { name: '作者', value: author ?? '未知', inline: true }
+            ],
+            thumbnail: { url: result.thumbnail }
+        });
     }
 
     private footerOptions(index: number, total: number): EmbedFooterData {

@@ -1,10 +1,10 @@
-import { Collection, Interaction, Message, MessageActionRow, MessageButton, MessageFlags, MessageOptions } from "discord.js";
+import { Collection, Interaction, Message, ActionRowBuilder, ButtonBuilder, BaseMessageOptions, ButtonStyle } from "discord.js";
 import { Client } from "../structures/Client";
 import { Handler } from "../structures/Handler";
 import extractURL from "../utils/extractURL";
 import fetch from "node-fetch";
 import { log } from "../utils/logger";
-import MessageEmbed from "../structures/MessageEmbed";
+import EmbedBuilder from "../structures/EmbedBuilder";
 import urlMetadata from "url-metadata";
 
 const embedCheckDelay = 3; //sec
@@ -90,7 +90,7 @@ export default class PreviewFix extends Handler {
         const urls = extractURL(msg.content).map(str =>  new URL(str));
         const twitterUrls = urls.filter(url => url.hostname === 'twitter.com');
         const lineTodayUrls = urls.filter(url => url.hostname === 'liff.line.me');
-        console.log(urls)
+        // console.log(urls)
 
         setTimeout(async () => {
             if (!msg.deletable) return;
@@ -104,7 +104,7 @@ export default class PreviewFix extends Handler {
             // console.log(msg.embeds, {needFix});
             if (!needFix.length) return;
 
-            let msgOptions: MessageOptions = { embeds: [], files: [] };
+            let msgOptions: BaseMessageOptions = { embeds: [], files: [] };
             if (needFix.some(v => twitterUrls.includes(v))) {
                 const data = await this.fixTwitter(msg, twitterUrls);
                 msgOptions = {
@@ -119,11 +119,11 @@ export default class PreviewFix extends Handler {
                 };
             }
 
-            const btnActionRow = new MessageActionRow({
+            const btnActionRow = new ActionRowBuilder<ButtonBuilder>({
                 components: [
-                    new MessageButton({
+                    new ButtonBuilder({
                         customId: 'delete',
-                        style: 'DANGER',
+                        style: ButtonStyle.Danger,
                         label: '刪除'
                     })
                 ] 
@@ -143,7 +143,7 @@ export default class PreviewFix extends Handler {
                     replyMsg.delete();
                 })
                 .catch(err => {
-                    if (err.code === 'INTERACTION_COLLECTOR_ERROR') {
+                    if (err.code === 'InteractionCollectorError') {
                         if (!replyMsg.editable) return;
                         replyMsg.edit({ components:[] });
                     } else {
@@ -167,20 +167,20 @@ export default class PreviewFix extends Handler {
                     }
                 })
             ))
-            .filter(Boolean) as MessageEmbed[]
+            .filter(Boolean) as EmbedBuilder[]
         }
     }
         
     private makeLineTodayEmbed(data: urlMetadata.Result) {
         const { publisher, datePublished, author, headline, description, image } = data.jsonld;
-        return new MessageEmbed({
+        return new EmbedBuilder({
             url: data.url,
             author: { name: publisher.name },
             title: headline,
             description,
             thumbnail: { url: image },
             footer: { text: author.name },
-            timestamp: new Date(datePublished)
+            timestamp: (new Date(datePublished).getTime() / 1000).toString()
         });
     }
 
@@ -193,8 +193,8 @@ export default class PreviewFix extends Handler {
         return this.makeTweetEmbeds(data);
     }
 
-    private makeTweetEmbeds(tweetsData: TweetLookupData): MessageOptions {
-        let embeds: MessageEmbed[] = [];
+    private makeTweetEmbeds(tweetsData: TweetLookupData): BaseMessageOptions {
+        let embeds: EmbedBuilder[] = [];
         let files: string[] = [];
         for (const data of tweetsData.data) {
             const user = tweetsData.includes.users.find(v => v.id === data.author_id)!;
@@ -205,11 +205,11 @@ export default class PreviewFix extends Handler {
             if (media[0].type === 'video') files.push(media[0].url);
 
             embeds.push(
-                new MessageEmbed({
+                new EmbedBuilder({
                     url: tweetShortURL,
                     author: {
                         name: user.name + ` (@${user.username})`,
-                        iconURL: user.profile_image_url
+                        icon_url: user.profile_image_url
                     },
                     description: desArr.join(' '),
                     fields: [
@@ -219,9 +219,9 @@ export default class PreviewFix extends Handler {
                     image: { url: media[0].url },
                     footer: {
                         text: media[0].type === 'video' ? '影片推文，載入速度較慢' : `推文預覽修正`,
-                        iconURL: 'https://abs.twimg.com/icons/apple-touch-icon-192x192.png'
+                        icon_url: 'https://abs.twimg.com/icons/apple-touch-icon-192x192.png'
                     },
-                    timestamp: new Date(data.created_at)
+                    timestamp: new Date(data.created_at).toISOString()
                 })
             )
 
@@ -229,7 +229,7 @@ export default class PreviewFix extends Handler {
             if (mediaLength > 1) {
                 for (let i = 1; i < mediaLength; i++) {
                     embeds.push(
-                        new MessageEmbed({
+                        new EmbedBuilder({
                             url: tweetShortURL,
                             image: { url: media[i].url }
                         })

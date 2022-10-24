@@ -1,7 +1,7 @@
-import { CommandInteraction, Message } from "discord.js";
+import { ApplicationCommandType, CommandInteraction, Message } from "discord.js";
 import { Client } from "../structures/Client";
 import { Command } from "../structures/Command";
-import MessageEmbed from "../structures/MessageEmbed";
+import EmbedBuilder from "../structures/EmbedBuilder";
 
 export default class Info extends Command {
     public constructor(public client: Client) {
@@ -16,7 +16,7 @@ export default class Info extends Command {
             },
             commandOptions: [
                 {
-                    type: 'CHAT_INPUT',
+                    type: ApplicationCommandType.ChatInput,
                     name: 'info',
                     description: '關於bot'
                 }
@@ -63,9 +63,13 @@ export default class Info extends Command {
         }
 
         const uptime = Math.floor(process.uptime());
-        const appUptime = Math.floor(uptime / 24 / 3600) + ' days ' + Math.floor(uptime / 3600 % 60) + ' hr ' + Math.floor(uptime / 60 % 60) + ' min ' + uptime % 60 + ' sec';
+        const appUptime = 
+            Math.floor(uptime / 24 / 3600) + ' days ' +
+            Math.floor(uptime / 3600 % 60) + ' hr ' +
+            Math.floor(uptime / 60 % 60) + ' min ' +
+            uptime % 60 + ' sec';
 
-        return new MessageEmbed({
+        return new EmbedBuilder({
             title: '\\📄 詳細資訊',
             fields: [
                 { name: '啟動於', value: `<t:${Math.floor(this.client.readyTimestamp! /1000)}:R>`, inline: true },

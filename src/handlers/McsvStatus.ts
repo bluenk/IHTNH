@@ -1,7 +1,7 @@
 import { Collection, Message, ThreadChannel } from "discord.js";
 import { Client } from "../structures/Client";
 import { Handler } from "../structures/Handler";
-import MessageEmbed from "../structures/MessageEmbed";
+import EmbedBuilder from "../structures/EmbedBuilder";
 import * as util from "minecraft-server-util";
 import { FullQueryResponse } from "minecraft-server-util";
 import { log } from "../utils/logger";
@@ -58,7 +58,7 @@ export default class McsvStatus extends Handler {
             enableSRV: false
         };
 
-        const pingRes = await execSync('ping khv3-1.speedtest.idv.tw -c 3 -q').catch();
+        const pingRes = await execSync('ping khv3-1.speedtest.idv.tw -c 3 -q').catch(()=>{});
         const avg = parseFloat(pingRes?.stdout.split('=')[1].split('/')[1] ?? '0');
         const c2pPing = Math.round(avg);
         
@@ -79,7 +79,7 @@ export default class McsvStatus extends Handler {
                     
                     offset = serverIP[0] === reverseProxyIP[0] ? c2pPing : -c2pPing ;
                 } catch (err) {
-                    console.error(err);
+                    log(err, this.options.info.name + '-reverseProxyHost');
                 }
             }
 
@@ -89,7 +89,7 @@ export default class McsvStatus extends Handler {
 
             if (err.message === 'Socket closed unexpectedly while waiting for data') return;
             if (err.message === 'Timed out while retrieving server status') return;
-            console.error(err);
+            log(err, this.options.info.name + '-checkStatus');
         }
     }
     
@@ -172,7 +172,7 @@ export default class McsvStatus extends Handler {
                             ? '\\🟢'
                             : '\\🔵';
 
-        return new MessageEmbed({
+        return new EmbedBuilder({
             author: { name: '📄 伺服器資訊' },
             fields: [
                 { name: '線上人數\u2800\u2800', value: `${detail?.players.online} / ${detail?.players.max}`, inline: true },

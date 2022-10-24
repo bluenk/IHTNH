@@ -1,10 +1,4 @@
-import {
-    Client as DiscordClient,
-    ClientOptions,
-    Collection,
-    ColorResolvable,
-    Guild
-} from "discord.js";
+import { Client as DiscordClient, ClientOptions } from "discord.js";
 import { log } from "../utils/logger";
 import EventLoader from "../utils/EventLoader";
 import CommandLoader from "../utils/CommandLoader";

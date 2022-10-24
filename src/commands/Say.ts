@@ -1,4 +1,4 @@
-import { CommandInteraction } from "discord.js";
+import { ApplicationCommandOptionType, ApplicationCommandType, ChatInputCommandInteraction, PermissionsBitField } from "discord.js";
 import { Client } from "../structures/Client";
 import { Command } from "../structures/Command";
 
@@ -15,13 +15,13 @@ export default class Say extends Command {
             },
             commandOptions: [
                 {
-                    type: 'CHAT_INPUT',
+                    type: ApplicationCommandType.ChatInput,
                     name: 'say',
                     description: '代理發言',
-                    defaultPermission: false,
+                    defaultMemberPermissions: PermissionsBitField.Flags.ManageGuild,
                     options: [
                         {
-                            type: 'STRING',
+                            type: ApplicationCommandOptionType.String,
                             name: 'message',
                             description: '內容',
                             required: true
@@ -32,7 +32,7 @@ export default class Say extends Command {
         });
     }
 
-    public async run(msg: CommandInteraction, args?: string[]) {
+    public async run(msg: ChatInputCommandInteraction, args?: string[]) {
         const content = msg.options.getString('message')!;
         await msg.channel?.send({ content });
         msg.reply({ content: '\\✔️ | 已發送！', ephemeral: true, allowedMentions: { repliedUser: false } });

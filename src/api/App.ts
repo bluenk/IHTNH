@@ -8,7 +8,7 @@ import { log } from '../utils/logger';
 export default class App {
     private readonly app;
     private readonly port = 5000;
-    private readonly host = process.env.NODE_ENV === 'pro' ? 'localhost' : '192.168.10.2';
+    private readonly host = 'localhost';
     
     public constructor(public client: Client) {
         this.app = express();

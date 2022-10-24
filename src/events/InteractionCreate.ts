@@ -1,4 +1,4 @@
-import { Collection, CommandInteraction, ContextMenuInteraction, Interaction } from "discord.js";
+import { CommandInteraction, ContextMenuCommandInteraction, Interaction } from "discord.js";
 import { Client } from "../structures/Client";
 import { Event } from "../structures/Event";
 
@@ -9,9 +9,9 @@ export default class InteractionCreate extends Event {
 
     public async execute(i: Interaction) {
         let commandName: string;
-        if (!(i instanceof CommandInteraction || i instanceof ContextMenuInteraction)) return;
+        if (!(i instanceof CommandInteraction || i instanceof ContextMenuCommandInteraction)) return;
         if (i.isCommand()) commandName = i.commandName;
-        if (i.isContextMenu()) commandName = i.commandName;
+        if (i.isContextMenuCommand()) commandName = i.commandName;
 
         const names = this.client.commands.collection.map(command => {
             const { commandOptions } = command.options;

@@ -1,4 +1,4 @@
-import { ApplicationCommandData, Collection, CommandInteraction, ContextMenuInteraction, Interaction, Message, MessageOptions } from "discord.js";
+import { ApplicationCommandData, Collection, CommandInteraction, ContextMenuCommandInteraction, Interaction, Message, MessageEditOptions, WebhookEditMessageOptions } from "discord.js";
 import { Client } from "./Client";
 
 export interface CommandOptionsData {
@@ -30,10 +30,10 @@ export abstract class Command {
         }
     }
 
-    protected async editReply(options: MessageOptions, msg: CommandInteraction | ContextMenuInteraction | Message) {
+    protected async editReply(options: MessageEditOptions, msg: CommandInteraction | ContextMenuCommandInteraction | Message) {
         // Can't edit ephemeral message, use <Interaction>.editReply instead.
-        if (msg instanceof ContextMenuInteraction) {
-            return msg.editReply(options);
+        if (msg instanceof ContextMenuCommandInteraction) {
+            return msg.editReply(options as WebhookEditMessageOptions);
         } else {
             return this.replyMsg.get(msg.id)?.edit(options);
         }

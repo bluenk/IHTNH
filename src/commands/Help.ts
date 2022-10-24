@@ -1,9 +1,7 @@
-import { Message, Interaction, CacheType, CommandInteraction, Formatters } from "discord.js";
+import { Message, Interaction, CacheType, CommandInteraction, inlineCode } from "discord.js";
 import { Client } from "../structures/Client";
 import { Command } from "../structures/Command";
-import MessageEmbed from "../structures/MessageEmbed";
-
-const { inlineCode } = Formatters;
+import EmbedBuilder from "../structures/EmbedBuilder";
 
 export default class Help extends Command {
     public constructor(public client: Client) {
@@ -22,9 +20,9 @@ export default class Help extends Command {
     }
 
     public run(msg: Message | Interaction | CommandInteraction, args?: string[]): void {
-        let embed: MessageEmbed | undefined;
+        let embed: EmbedBuilder | undefined;
         if (args?.length === 1) {
-            embed = new MessageEmbed({
+            embed = new EmbedBuilder({
                 title: '\\❔ 指令清單',
                 description: `輸入 ${inlineCode('i.help [指令名]')} 取得更詳細的資訊。`,
                 fields: [
@@ -35,7 +33,7 @@ export default class Help extends Command {
                     },
                     {
                         name: '伺服器',
-                        value: inlineCode('afk') + ' ' + inlineCode('together'),
+                        value: inlineCode('afk'),
                         inline: true
                     },
                     {
@@ -52,7 +50,7 @@ export default class Help extends Command {
         }
         if (args?.length === 2 && this.client.commands.collection.has(args[1])) {
             const { options } = this.client.commands.collection.get(args![1])!;
-            embed = new MessageEmbed({
+            embed = new EmbedBuilder({
                 title: options.info.fullName,
                 description: options.info.detail,
                 fields: [
