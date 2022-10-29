@@ -7,7 +7,7 @@ import { log } from "../utils/logger";
 import EmbedBuilder from "../structures/EmbedBuilder";
 import urlMetadata from "url-metadata";
 
-const embedCheckDelay = 3; //sec
+const embedCheckDelay = 5; //sec
 const embedDeleteTimeout = 0.5; //min
 
 interface TweetLookupData {
@@ -124,7 +124,7 @@ export default class PreviewFix extends Handler {
                     new ButtonBuilder({
                         customId: 'delete',
                         style: ButtonStyle.Danger,
-                        label: '刪除'
+                        label: '不需要'
                     })
                 ] 
             });
