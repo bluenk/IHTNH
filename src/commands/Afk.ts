@@ -9,6 +9,7 @@ export default class Afk extends Command {
                 name: 'afk',
                 fullName: '閒置/離開狀態',
                 detail: '取得AFK身分組，與線上成員分開顯示。',
+                alias: [],
                 usage: ['afk'],
                 example: 'i.afk' + '\n' + '/afk',
                 enable: true

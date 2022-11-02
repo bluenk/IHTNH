@@ -10,6 +10,7 @@ export default class Help extends Command {
                 name: 'help',
                 fullName: 'help',
                 detail: '查詢指令用法及詳細資訊',
+                alias: [],
                 usage: ['help', 'help [command]'],
                 example:
                     'i.help' + '\n' +

@@ -16,6 +16,7 @@ export default class Icon extends Command {
                 name: 'icon',
                 fullName: '檢視頭像',
                 detail: '放大顯示使用者的頭像。',
+                alias: ['pfp', 'avatar'],
                 usage: ['icon'],
                 example:
                     'i.icon' + '\n' +

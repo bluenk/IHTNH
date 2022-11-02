@@ -6,6 +6,7 @@ export interface CommandOptionsData {
         name: string;
         fullName: string;
         detail: string;
+        alias: string[];
         usage: string[];
         example: string;
         enable: boolean;

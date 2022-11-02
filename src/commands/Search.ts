@@ -47,6 +47,7 @@ export default class Search extends Command {
                 name: 'search',
                 fullName: 'SauceNao圖片搜尋',
                 detail: '上傳圖片至SauceNao.com查詢',
+                alias: ['find'],
                 usage: ['search'],
                 example:
                     'i.search https://nekos.moe/image/rJQB1Dq2z.jpg' + '\n' +

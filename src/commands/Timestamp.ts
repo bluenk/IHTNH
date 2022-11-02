@@ -10,6 +10,7 @@ export default class Timestamp extends Command{
                 name: 'timestamp',
                 fullName: 'Discord timestamp 產生器',
                 detail: '轉換時間成Discord timestamp',
+                alias: [],
                 usage: ['timestamp'],
                 example: '/timestamp yyyy:2022 mm:06 dd:13 hh:15 min:26',
                 enable: true
