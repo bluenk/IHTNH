@@ -27,11 +27,17 @@ export default class MessageCreate extends Event {
         // }
 
         // Handle prefix commands.
-        if (hasPrefix && this.client.commands.collection.has(args[0].toLowerCase())) {
-            log(`User ${msg.author.tag} has triggered the ${args[0]} command. => args: ${args}`, this.name);
-            const command = this.client.commands.collection.get(args[0].toLowerCase());
-            if (command?.options.info.enable) {
-                command.run(msg, args);
+        const matchedCommand = this.client.commands.collection
+            .find(c => [...c.options.info.alias, c.options.info.name].includes(args[0].toLowerCase()));
+        if (hasPrefix && matchedCommand) {
+            log(
+                `User ${msg.author.tag} has triggered the ${matchedCommand.options.info.name} command. ` +
+                `=> args: ${args}`,
+                this.name
+            );
+
+            if (matchedCommand.options.info.enable) {
+                matchedCommand.run(msg, args);
             } else {
                 msg.reply('\\⛔ | 此指令目前停用中');
             }
