@@ -16,6 +16,10 @@ const fetchDelay = 1; //min
 let downDetected = 0;
 
 enum Status { UP = 'up', DOWN = 'down' }
+enum ThreadTitle {
+    UP = '🟢伺服器狀態-線上',
+    DOWN = '🔴伺服器狀態-停止'
+}
 
 export default class McsvStatus extends Handler {
     private curStatus: Status = Status.DOWN;
@@ -113,9 +117,10 @@ export default class McsvStatus extends Handler {
 
         // When server down.
         if (this.curStatus === Status.DOWN && downDetected >= 5) {
+            if (!this.detailMsg) return;
             log(`Server is ${this.curStatus} now.`, this.options.info.name);
 
-            this.threadCh?.edit({ name: '🔴伺服器狀態-停止 ' });
+            this.threadCh?.edit({ name: ThreadTitle.DOWN });
             this.detailMsg?.delete();
             this.detailMsg = null;
             this.lastSeen.clear();
@@ -124,7 +129,7 @@ export default class McsvStatus extends Handler {
         // When server up.
         if (this.curStatus === Status.UP && statusChanged) {
             log(`Server is ${this.curStatus} now.`, this.options.info.name);
-            await this.threadCh?.edit({ name: '🟢伺服器狀態-線上 ' });
+            await this.threadCh?.edit({ name: ThreadTitle.UP });
         }
 
         if (this.curStatus === Status.UP) {
