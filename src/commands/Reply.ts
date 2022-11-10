@@ -143,15 +143,15 @@ export default class Reply extends Command {
 
         if (msg instanceof Message) {
             // console.log({ args });
-            if (args.length < 3) return replyMsg.edit(this.sendErr('ARGS_MISSING'));
-            if (!(Object.values(SubCommand).find(v => v === args[1]))) return replyMsg.edit(this.sendErr('ARGS_MISSING'));
+            if (args.length < 3) return replyMsg.edit(this.makeErrMsg('ARGS_MISSING'));
+            if (!(Object.values(SubCommand).find(v => v === args[1]))) return replyMsg.edit(this.makeErrMsg('ARGS_MISSING'));
             subCommand = args[1];
             keyword = args[2];
 
             if (subCommand === SubCommand.NEW) {
                 content = args[3] || msg.attachments.first()?.url;
-                if (!content) return replyMsg.edit(this.sendErr('ARGS_MISSING'));
-                if ((msg.attachments.first()?.size! / 1024 / 1024) > 10) return this.replyMsg.get(msg.id)?.edit(this.sendErr('IMAGE_TOO_LARGE'));
+                if (!content) return replyMsg.edit(this.makeErrMsg('ARGS_MISSING'));
+                if ((msg.attachments.first()?.size! / 1024 / 1024) > 10) return this.replyMsg.get(msg.id)?.edit(this.makeErrMsg('IMAGE_TOO_LARGE'));
             }
         }
 
@@ -178,7 +178,7 @@ export default class Reply extends Command {
         const { replyMsg, targetKeyword } = props;
         if (await this.checkKeywordExist(props, targetKeyword)) {
             replyMsg.edit({
-                content: this.sendErr('KEYWORD_EXIST'),
+                content: this.makeErrMsg('KEYWORD_EXIST'),
                 embeds: [await this.makeKeywordEmbed(props, 'conflict')]
             });
             return;
@@ -186,7 +186,7 @@ export default class Reply extends Command {
         const correct = await this.handleCheckMenu(props, props.replyMsg);
         if (!correct) return;
         const res = await this.uploadImgur(props);
-        if (!res) return replyMsg.edit(this.sendErr('IMAGE_UPLOAD_FAILED'));
+        if (!res) return replyMsg.edit(this.makeErrMsg('IMAGE_UPLOAD_FAILED'));
         await this.appendData(res, props);
         await replyMsg.edit(this.makeSuccessEmbed(res, props));
     }
@@ -195,7 +195,7 @@ export default class Reply extends Command {
         const { author, replyMsg, targetKeyword, model } = props;
         if (!await this.checkKeywordExist(props, targetKeyword)) {
             replyMsg.edit({
-                content: this.sendErr('KEYWORD_NOT_EXIST')
+                content: this.makeErrMsg('KEYWORD_NOT_EXIST')
             });
             return;
         }
@@ -281,7 +281,7 @@ export default class Reply extends Command {
             if (!res) {
                 askMsg.delete();
                 resMsg.delete();
-                replyMsg.edit(this.sendErr('IMAGE_UPLOAD_FAILED'));
+                replyMsg.edit(this.makeErrMsg('IMAGE_UPLOAD_FAILED'));
                 return;
             }
 
@@ -292,7 +292,7 @@ export default class Reply extends Command {
         }
         if (mode === 'addKeyword') {
             if (await this.checkKeywordExist(props, resMsg.content)) {
-                replyMsg.edit({ content: this.sendErr('KEYWORD_EXIST') });
+                replyMsg.edit({ content: this.makeErrMsg('KEYWORD_EXIST') });
                 askMsg.delete();
                 return;
             }
@@ -301,7 +301,7 @@ export default class Reply extends Command {
 
 
         replyMsg.edit({
-            content: dbRes ? '\\✔️ | 操作成功，觸發詞已更新。' : this.sendErr('DB_UPDATE_FAILED'),
+            content: dbRes ? '\\✔️ | 操作成功，觸發詞已更新。' : this.makeErrMsg('DB_UPDATE_FAILED'),
             embeds: [await this.makeKeywordEmbed(props, 'preview')],
             components: []
         });
@@ -390,7 +390,7 @@ export default class Reply extends Command {
         const { author, content } = props;
         return new Promise(async (resolve, reject) => {
             if (!this.isURL(content)) {
-                editMsg.edit(this.sendErr('URL_INCORRECT'));
+                editMsg.edit(this.makeErrMsg('URL_INCORRECT'));
                 return resolve(false);
             }
             editMsg.edit({ ...this.makeCheckMenu(props), content: '確認階段' });
@@ -611,7 +611,7 @@ export default class Reply extends Command {
         })
     }
 
-    private sendErr(type: ErrorType) {
+    private makeErrMsg(type: ErrorType) {
         const hint =
             codeBlock('用法: i.reply <new|edit> <關鍵字> [圖片網址]') + '\n' +
             '常常打錯指令嗎？又或者忘記指令怎麼打嗎？斜線指令或許正適合你，在對話框輸入\`/\`試試看吧！\n\n' +

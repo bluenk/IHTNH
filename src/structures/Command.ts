@@ -1,4 +1,4 @@
-import { ApplicationCommandData, Collection, CommandInteraction, ContextMenuCommandInteraction, Interaction, Message, MessageEditOptions, WebhookEditMessageOptions } from "discord.js";
+import { ApplicationCommandData, ChatInputCommandInteraction, Collection, CommandInteraction, ContextMenuCommandInteraction, Guild, Interaction, Message, MessageEditOptions, TextBasedChannel, TextChannel, WebhookEditMessageOptions } from "discord.js";
 import { Client } from "./Client";
 
 export interface CommandOptionsData {
@@ -39,5 +39,11 @@ export abstract class Command {
         } else {
             return this.replyMsg.get(msg.id)?.edit(options);
         }
+    }
+
+    protected sendRes(content: string, target: Message | ChatInputCommandInteraction | ContextMenuCommandInteraction, success: boolean) {
+        target.reply({
+            content: (success ? '\\✔️ | ' : '\\❌ | ') + content
+        });
     }
 }
