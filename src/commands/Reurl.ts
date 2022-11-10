@@ -22,6 +22,7 @@ export default class Reurl extends Command {
                 name: 'reurl',
                 fullName: 'reurl縮網址產生器',
                 detail: '透過reurl.cc產生縮網址。',
+                category: 'others',
                 alias: [],
                 usage: ['reurl'],
                 example:

@@ -9,6 +9,7 @@ export default class Say extends Command {
                 name: 'say',
                 fullName: '代理發言',
                 detail: '使用bot發送匿名訊息',
+                category: 'others',
                 alias: [],
                 usage: ['say'],
                 example: '/say message:Hello World!',

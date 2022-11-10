@@ -68,6 +68,7 @@ export default class Reply extends Command {
                 name: 'reply',
                 fullName: '建立/編輯觸發詞',
                 detail: '使用者打出特定詞彙時會回覆對應圖片。',
+                category: 'guild',
                 alias: [],
                 usage: ['reply new', 'reply edit'],
                 example:

@@ -53,6 +53,7 @@ export default class Play extends Command {
                 name: 'play',
                 fullName: '音樂播放機',
                 detail: '在使用者當前的語音頻道撥放音樂，目前僅支援Youtube網址。',
+                category: 'others',
                 alias: ['p'],
                 usage: ['play'],
                 example:

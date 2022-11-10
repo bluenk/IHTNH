@@ -6,6 +6,7 @@ export interface CommandOptionsData {
         name: string;
         fullName: string;
         detail: string;
+        category: 'core' | 'guild' | 'others'
         alias: string[];
         usage: string[];
         example: string;

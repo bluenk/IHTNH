@@ -12,6 +12,7 @@ export default class Neko extends Command {
                 name: 'neko',
                 fullName: 'Nekos.moe隨機圖片',
                 detail: '從Nekos.moe隨機抽取圖片。',
+                category: 'others',
                 alias: [],
                 usage: ['neko'],
                 example: 'i.neko' + '\n' + '/neko',

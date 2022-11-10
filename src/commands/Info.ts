@@ -10,6 +10,7 @@ export default class Info extends Command {
                 name: 'info',
                 fullName: 'bot詳細資訊',
                 detail: '可查看目前啟用的指令。',
+                category: 'core',
                 alias: ['status'],
                 usage: ['info'],
                 example: 'i.info' + '\n' + '/info',
