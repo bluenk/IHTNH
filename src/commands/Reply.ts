@@ -16,7 +16,9 @@ import {
     inlineCode,
     bold,
     ButtonStyle,
-    ButtonComponent
+    ButtonComponent,
+    AutocompleteInteraction,
+    CacheType
 } from "discord.js";
 import fetch from "node-fetch";
 import FormData from "form-data";
@@ -110,9 +112,10 @@ export default class Reply extends Command {
                             options: [
                                 {
                                     type: ApplicationCommandOptionType.String,
-                                    name: 'keyword',
+                                    name: 'edit_keyword',
                                     description: '目標觸發詞',
-                                    required: true
+                                    required: true,
+                                    autocomplete: true
                                 }
                             ]
                         }
@@ -120,6 +123,33 @@ export default class Reply extends Command {
                 }
             ]
         })
+    }
+
+    public async autocomplete(i: AutocompleteInteraction<CacheType>) {
+        const value = i.options.getString('edit_keyword');
+        if (!value) return;
+        const model = new ReplyDb(this.client, i.guildId!).model;
+        
+        const ac = await model.aggregate([
+            {
+                $search: {
+                    autocomplete: {
+                        path: 'keyword',
+                        query: value
+                    }
+                },
+                
+            },
+            { $limit: 8 },
+            {
+                $project: {
+                    _id: 0,
+                    keyword: 1
+                }
+            }
+        ]).exec();
+
+        i.respond(ac.map(({ keyword }) => ({ name: keyword[0], value: keyword[0] })));
     }
     
     public async run(msg: ChatInputCommandInteraction | Message, args: string[]) {
