@@ -1,4 +1,4 @@
-import { ApplicationCommandData, ChatInputCommandInteraction, Collection, CommandInteraction, ContextMenuCommandInteraction, Guild, Interaction, Message, MessageEditOptions, TextBasedChannel, TextChannel, WebhookEditMessageOptions } from "discord.js";
+import { ApplicationCommandData, AutocompleteInteraction, CacheType, ChatInputCommandInteraction, Collection, CommandInteraction, ContextMenuCommandInteraction, Guild, Interaction, Message, MessageEditOptions, TextBasedChannel, TextChannel, WebhookEditMessageOptions } from "discord.js";
 import { Client } from "./Client";
 
 export interface CommandOptionsData {
@@ -22,6 +22,8 @@ export abstract class Command {
 
     public abstract run(msg: Message | Interaction | CommandInteraction, args?: string[]): void;
 
+    public autocomplete?(i: AutocompleteInteraction<CacheType>): void;
+
     protected isURL(str: unknown) {
         if (!(typeof str === 'string')) return false;
         try {
@@ -41,9 +43,10 @@ export abstract class Command {
         }
     }
 
-    protected sendRes(content: string, target: Message | ChatInputCommandInteraction | ContextMenuCommandInteraction, success: boolean) {
+    protected sendRes(content: string, target: Message | ChatInputCommandInteraction | ContextMenuCommandInteraction, success: boolean, ephemeral: boolean = false) {
         target.reply({
-            content: (success ? '\\✔️ | ' : '\\❌ | ') + content
+            content: (success ? '\\✔️ | ' : '\\❌ | ') + content,
+            ephemeral
         });
     }
 }
