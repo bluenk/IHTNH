@@ -11,20 +11,25 @@ export default class MessageCreate extends Event {
     }
 
     public async execute(msg: Message) {
-        // console.log(msg);
-        if (msg.author.bot) return;
-
         let hasPrefix = false;
         let hasAttachments = false;
         if (msg.content.startsWith(process.env.NODE_ENV === 'pro' ? 'i.' : 'i,')) hasPrefix = true;
         if (msg.attachments.size) hasAttachments = true;
 
         const args = msg.content.substring(2).split(' ');
-
+        
         // console.log({args, content: msg.content});
-        // if (hasPrefix && args[0] === 'ping') {
-        //     msg.reply('pong!');
-        // }
+
+        // AntiScam url check and PreviewFix.
+        const hasUrl = msg.content.match(/(https?:\/\/[^ ]*)/g);
+        const urlHandlers = ['antiScam', 'previewFix'];
+        if (hasUrl) {
+            for (const name of urlHandlers) {
+                this.client.handlers.collection.get(name)?.run(msg);
+            }
+        }
+
+        if (msg.author.bot) return;
 
         // Handle prefix commands.
         const matchedCommand = this.client.commands.collection
@@ -58,15 +63,6 @@ export default class MessageCreate extends Event {
                     sended.edit({ content: ' ', files: [img] });
                 }
             }, 1500)
-        }
-
-        // AntiScam url check and PreviewFix.
-        const hasUrl = msg.content.match(/(https?:\/\/[^ ]*)/g);
-        const urlHandlers = ['antiScam', 'previewFix'];
-        if (hasUrl) {
-            for (const name of urlHandlers) {
-                this.client.handlers.collection.get(name)?.run(msg);
-            }
         }
     }
 }
