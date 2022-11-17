@@ -9,7 +9,7 @@ export default class InteractionCreate extends Event {
 
     public async execute(i: Interaction) {
         let commandName: string;
-        if (!(i.isChatInputCommand || i.isContextMenuCommand() || i.isAutocomplete())) return;
+        if (!(i.isChatInputCommand() || i.isContextMenuCommand() || i.isAutocomplete())) return;
         if (!(i.isSelectMenu() || i.isButton() || i.isModalSubmit())) commandName = i.commandName;
 
         const names = this.client.commands.collection.map(command => {
