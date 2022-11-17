@@ -1,6 +1,6 @@
 import { Command } from '../structures/Command';
 import { log } from '../utils/logger';
-import { CommandInteraction, DiscordAPIError, GuildMember, Message } from 'discord.js';
+import { ApplicationCommandType, CommandInteraction, DiscordAPIError, GuildMember, Message } from 'discord.js';
 
 export default class Afk extends Command {
     public constructor(client: Command["client"]) {
@@ -9,13 +9,15 @@ export default class Afk extends Command {
                 name: 'afk',
                 fullName: '閒置/離開狀態',
                 detail: '取得AFK身分組，與線上成員分開顯示。',
+                category: 'guild',
+                alias: [],
                 usage: ['afk'],
                 example: 'i.afk' + '\n' + '/afk',
                 enable: true
             },
             commandOptions: [
                 {
-                    type: 'CHAT_INPUT',
+                    type: ApplicationCommandType.ChatInput,
                     name: 'afk',
                     description: '切換AFK狀態'
                 }

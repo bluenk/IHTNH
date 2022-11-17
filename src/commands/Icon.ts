@@ -1,4 +1,11 @@
-import { CommandInteraction, ContextMenuInteraction, Interaction, Message, User } from "discord.js";
+import { 
+    ApplicationCommandOptionType,
+    ApplicationCommandType,
+    CommandInteraction,
+    ContextMenuCommandInteraction,
+    Message,
+    User
+} from "discord.js";
 import { Client } from "../structures/Client";
 import { Command } from "../structures/Command"
 
@@ -9,6 +16,8 @@ export default class Icon extends Command {
                 name: 'icon',
                 fullName: '檢視頭像',
                 detail: '放大顯示使用者的頭像。',
+                category: 'others',
+                alias: ['pfp', 'avatar'],
                 usage: ['icon'],
                 example:
                     'i.icon' + '\n' +
@@ -19,26 +28,26 @@ export default class Icon extends Command {
             },
             commandOptions: [
                 {
-                    type: 'CHAT_INPUT',
+                    type: ApplicationCommandType.ChatInput,
                     name: 'icon',
                     description: '檢視頭像',
                     options: [
                         {
-                            type: 'STRING',
+                            type: ApplicationCommandOptionType.String,
                             name: 'user',
                             description: '目標使用者'
                         }
                     ]
                 },
                 {
-                    type: 'USER',
+                    type: ApplicationCommandType.User,
                     name: '檢視頭像'
                 }
             ]
         })
     }
 
-    run(msg: Message | CommandInteraction | ContextMenuInteraction) {
+    run(msg: Message | CommandInteraction | ContextMenuCommandInteraction) {
         let user: User;
         if (msg instanceof Message) {
             user = msg.mentions.users.first() ?? msg.author;
@@ -50,11 +59,11 @@ export default class Icon extends Command {
         const url = this.getIcon(user);
         msg.reply({
             ...(url ? { files: [url] } : { content: '\\❌ | 這位使用者並沒有設定大頭貼' }),
-            ephemeral: msg instanceof ContextMenuInteraction
+            ephemeral: msg instanceof ContextMenuCommandInteraction
         });
     }
 
     private getIcon(user: User): string {
-        return user.avatarURL({ size: 2048, dynamic: true }) || '';
+        return user.avatarURL({ size: 2048 }) || '';
     }
 }

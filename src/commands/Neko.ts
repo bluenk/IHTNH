@@ -1,9 +1,9 @@
-import { CommandInteraction, Message } from "discord.js";
+import { ApplicationCommandType, CommandInteraction, Message } from "discord.js";
 import { Command } from "../structures/Command";
-import fetch, { Response } from "node-fetch";
+import fetch from "node-fetch";
 import { log } from "../utils/logger";
 import { Client } from "../structures/Client";
-import MessageEmbed from "../structures/MessageEmbed";
+import EmbedBuilder from "../structures/EmbedBuilder";
 
 export default class Neko extends Command {
     public constructor(public client: Client) {
@@ -12,13 +12,15 @@ export default class Neko extends Command {
                 name: 'neko',
                 fullName: 'Nekos.moe隨機圖片',
                 detail: '從Nekos.moe隨機抽取圖片。',
+                category: 'others',
+                alias: [],
                 usage: ['neko'],
                 example: 'i.neko' + '\n' + '/neko',
                 enable: true
             },
             commandOptions: [
                 {
-                    type: 'CHAT_INPUT',
+                    type: ApplicationCommandType.ChatInput,
                     name: 'neko',
                     description: '隨機獸耳娘圖'
                 }
@@ -32,7 +34,7 @@ export default class Neko extends Command {
         msg.reply({ embeds: [embed] });
     }
 
-    private async getEmbed(): Promise<MessageEmbed | void> {
+    private async getEmbed(): Promise<EmbedBuilder | void> {
         let data;
         try {
             const res = await fetch('https://nekos.moe/api/v1/random/image?nsfw=false', {
@@ -50,7 +52,7 @@ export default class Neko extends Command {
 
         const postURL = `https://nekos.moe/post/${data.images[0].id}`;
         const imgURL = `https://nekos.moe/image/${data.images[0].id}.jpg`;
-        return new MessageEmbed()
+        return new EmbedBuilder()
             .setTitle('Click here to see the post')
             .setDescription(`artist: ${data.images[0].artist}`)
             .setImage(imgURL)

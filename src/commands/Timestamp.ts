@@ -1,7 +1,7 @@
-import { Message, Interaction, CacheType, CommandInteraction, ApplicationCommandOptionChoice } from "discord.js";
+import { Message, Interaction, CacheType, CommandInteraction, ApplicationCommandOptionChoiceData, ApplicationCommandType, ApplicationCommandOptionType, ChatInputCommandInteraction } from "discord.js";
 import { Client } from "../structures/Client";
 import { Command } from "../structures/Command"
-import MessageEmbed from "../structures/MessageEmbed";
+import EmbedBuilder from "../structures/EmbedBuilder";
 
 export default class Timestamp extends Command{
     public constructor(client: Client) {
@@ -10,42 +10,42 @@ export default class Timestamp extends Command{
                 name: 'timestamp',
                 fullName: 'Discord timestamp 產生器',
                 detail: '轉換時間成Discord timestamp',
+                category: 'others',
+                alias: [],
                 usage: ['timestamp'],
                 example: '/timestamp yyyy:2022 mm:06 dd:13 hh:15 min:26',
                 enable: true
             },
             commandOptions: [
                 {
-                    type: 'CHAT_INPUT',
+                    type: ApplicationCommandType.ChatInput,
                     name: 'timestamp',
                     description: '產生 Discord Timestamp',
                     options: [
-                        { type: 'INTEGER', name: 'year', description: '年分', required: true },
+                        { type: ApplicationCommandOptionType.Integer, name: 'year', description: '年分', required: true },
                         { 
-                            type: 'INTEGER',
+                            type: ApplicationCommandOptionType.Integer,
                             name: 'month',
-                            description: '月分',
-                            required: true,
-                            choices: makeNumberOptions(1, 12)
+                            description: '月分(01~12)',
+                            required: true
                         },
                         { 
-                            type: 'INTEGER',
+                            type: ApplicationCommandOptionType.Integer,
                             name: 'day',
                             description: '日(0~31)',
-                            required: true,
+                            required: true
                         },
                         { 
-                            type: 'INTEGER',
+                            type: ApplicationCommandOptionType.Integer,
                             name: 'hour',
-                            description: '小時(24小時制)',
-                            required: true,
-                            choices: makeNumberOptions(0, 23)
+                            description: '小時(24小時制|0~23)',
+                            required: true
                         },
                         { 
-                            type: 'INTEGER',
+                            type: ApplicationCommandOptionType.Integer,
                             name: 'min',
                             description: '分鐘(0~59)',
-                            required: true,
+                            required: true
                         }
                     ]
                 }
@@ -53,7 +53,7 @@ export default class Timestamp extends Command{
         });
     }
 
-    public run(msg: Message<boolean> | Interaction<CacheType> | CommandInteraction<CacheType>, args?: string[] | undefined): void {
+    public run(msg: ChatInputCommandInteraction, args?: string[] | undefined): void {
         if (!(msg instanceof CommandInteraction)) return;
 
         const year = msg.options.getInteger('year');
@@ -62,9 +62,9 @@ export default class Timestamp extends Command{
         let hour = paddingLeft(msg.options.getInteger('hour')!);
         let min = paddingLeft(msg.options.getInteger('min')!);
 
-        const time = new Date(`${year}-${month}-${day}T${hour}:${min}:00`).getTime() / 1000;
+        const time = new Date(`${year}-${month}-${day}T${hour}:${min}:00+0800`).getTime() / 1000;
         
-        const embed = new MessageEmbed({
+        const embed = new EmbedBuilder({
             author: { name: 'Discoed Timestamps' },
             fields: [
                 { name: `\`<t:${time}>\``, value: `<t:${time}>`, inline: true },
@@ -79,14 +79,6 @@ export default class Timestamp extends Command{
 
         msg.reply({ embeds: [embed], ephemeral: true })
     }
-}
-
-const makeNumberOptions = (start: number, end: number): ApplicationCommandOptionChoice[] => {
-    const arr: ApplicationCommandOptionChoice[] = [];
-    for (let i = start; i <= end; i++) {
-        arr.push({ name: i.toString(), value: i });
-    }
-    return arr;
 }
 
 const paddingLeft = (number: number) => {

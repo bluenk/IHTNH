@@ -1,9 +1,32 @@
-import { AudioPlayer, AudioPlayerStatus, createAudioPlayer, createAudioResource, DiscordGatewayAdapterCreator, joinVoiceChannel, VoiceConnection, VoiceConnectionStatus } from "@discordjs/voice";
-import { Message, CommandInteraction, Collection, Guild, MessageActionRow, MessageButton, MessageOptions, Interaction, InteractionUpdateOptions } from "discord.js";
+import {
+    AudioPlayer,
+    AudioPlayerStatus,
+    createAudioPlayer,
+    createAudioResource,
+    DiscordGatewayAdapterCreator,
+    joinVoiceChannel,
+    VoiceConnection,
+    VoiceConnectionStatus
+} from "@discordjs/voice";
+import {
+    Message,
+    CommandInteraction,
+    Collection,
+    ActionRowBuilder,
+    ButtonBuilder,
+    InteractionUpdateOptions,
+    MessageEditOptions,
+    ApplicationCommandType,
+    ApplicationCommandOptionType,
+    ChatInputCommandInteraction,
+    ButtonStyle,
+    Colors,
+    ButtonComponent
+} from "discord.js";
 import ytdl, { videoInfo } from "ytdl-core";
 import { Client } from "../structures/Client";
 import { Command } from "../structures/Command";
-import MessageEmbed from "../structures/MessageEmbed";
+import EmbedBuilder from "../structures/EmbedBuilder";
 import { log } from "../utils/logger";
 import { EventEmitter } from "events";
 
@@ -30,6 +53,8 @@ export default class Play extends Command {
                 name: 'play',
                 fullName: '音樂播放機',
                 detail: '在使用者當前的語音頻道撥放音樂，目前僅支援Youtube網址。',
+                category: 'others',
+                alias: ['p'],
                 usage: ['play'],
                 example:
                     'i.play https://youtu.be/dQw4w9WgXcQ' + '\n' +
@@ -38,12 +63,12 @@ export default class Play extends Command {
             },
             commandOptions: [
                 {
-                    type: 'CHAT_INPUT',
+                    type: ApplicationCommandType.ChatInput,
                     name: 'play',
                     description: 'Youtube音樂播放',
                     options: [
                         {
-                            type: 'STRING',
+                            type: ApplicationCommandOptionType.String,
                             name: 'url',
                             description: 'Youtube影片網址',
                             required: true
@@ -54,7 +79,7 @@ export default class Play extends Command {
         });
     }
 
-    public async run(msg: Message | CommandInteraction, args?: string[]) {
+    public async run(msg: Message | ChatInputCommandInteraction, args?: string[]) {
         let url: string | undefined;
         let isPlaying = false;
         let replyMsg: Message;
@@ -91,7 +116,7 @@ export default class Play extends Command {
             url = args[1];
         }
 
-        if (msg instanceof CommandInteraction) {
+        if (msg instanceof ChatInputCommandInteraction) {
             url = msg.options.getString('url')!;
         }
         
@@ -158,16 +183,17 @@ export default class Play extends Command {
             this.servers.set(msg.guildId, current);
         })
 
-        conn.once(VoiceConnectionStatus.Disconnected, () => {
+        conn.once(VoiceConnectionStatus.Disconnected, async () => {
             log('voice connrction disconnected.', this.options.info.name);
+            const menu = await replyMsg.fetch();
 
             replyMsg.edit({
                 embeds: [
-                    replyMsg.embeds[0].setAuthor({ name: '已結束播放' })
+                    EmbedBuilder.from(menu.embeds[0]).setAuthor({ name: '已結束播放' })
                 ],
                 components: [
-                    new MessageActionRow({  
-                        components: replyMsg.components[0].components.map((b, i) => b.setDisabled(i < 2))
+                    new ActionRowBuilder<ButtonBuilder>({  
+                        components: menu.components[0].components.map((b, i) => ButtonBuilder.from(b as ButtonComponent).setDisabled(i < 2))
                     })
                 ]
             });
@@ -182,27 +208,27 @@ export default class Play extends Command {
 
     private async handleMenu(msg: Message, player: AudioPlayer) {
         const btns = [
-            new MessageButton({
+            new ButtonBuilder({
                 customId: 'pause',
                 label: '暫停',
-                style: 'PRIMARY',
+                style: ButtonStyle.Primary,
                 emoji: '<:pauseButton:877416903327506513>'
             }),
-            new MessageButton({
+            new ButtonBuilder({
                 customId: 'skip',
                 label: '跳過',
-                style: 'PRIMARY',
+                style: ButtonStyle.Primary,
                 emoji: '<:skipButton:877419859586216019>'
             }),
         ];
-        const btnRow = new MessageActionRow({ components: btns });
+        const btnRow = new ActionRowBuilder<ButtonBuilder>({ components: btns });
 
-        const embed = new MessageEmbed({
+        const embed = new EmbedBuilder({
             title:  '📡 緩衝中...',
-            color: 'DARKER_GREY'
+            color: Colors.DarkGrey
         })
 
-        const options: MessageOptions =  { embeds: [embed], components: [btnRow], content: ' ' };
+        const options: MessageEditOptions =  { embeds: [embed], components: [btnRow], content: ' ' };
 
         
         const menu = await msg.edit({...options, allowedMentions: { repliedUser: false }});
@@ -228,7 +254,7 @@ export default class Play extends Command {
                     break;
             }
 
-            const newBtnRow = new MessageActionRow({ components: btns });
+            const newBtnRow = new ActionRowBuilder<ButtonBuilder>({ components: btns });
             updateOptions.components = [newBtnRow];
 
             i.update(updateOptions);
@@ -238,7 +264,7 @@ export default class Play extends Command {
             const { queue } = this.servers.get(msg.guildId!)!;
             const { videoDetails } = queue[0].info;
             
-            const menuEmbed = new MessageEmbed({
+            const menuEmbed = new EmbedBuilder({
                 author: { name: '正在播放' },
                 title: videoDetails.title,
                 description: videoDetails.author.name,
@@ -265,7 +291,7 @@ export default class Play extends Command {
                 thumbnail: videoDetails.thumbnails[0]
             });
 
-            const listEmbed = new MessageEmbed({
+            const listEmbed = new EmbedBuilder({
                 author: { name: '播放清單' },
                 description: this.makePlayList(queue)
             });
@@ -281,7 +307,7 @@ export default class Play extends Command {
             const newMenu = await menu.fetch();
             // console.log(`[${menu.guildId}-queueUpdate]: `, queue);
 
-            const updatedListEmbed = newMenu.embeds[1].setDescription(this.makePlayList(queue));
+            const updatedListEmbed = EmbedBuilder.from(newMenu.embeds[1]).setDescription(this.makePlayList(queue));
 
             newMenu.edit({ embeds: [newMenu.embeds[0], updatedListEmbed] });
         })

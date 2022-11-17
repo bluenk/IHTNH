@@ -1,7 +1,7 @@
 import { Collection, Message, ThreadChannel } from "discord.js";
 import { Client } from "../structures/Client";
 import { Handler } from "../structures/Handler";
-import MessageEmbed from "../structures/MessageEmbed";
+import EmbedBuilder from "../structures/EmbedBuilder";
 import * as util from "minecraft-server-util";
 import { FullQueryResponse } from "minecraft-server-util";
 import { log } from "../utils/logger";
@@ -16,6 +16,10 @@ const fetchDelay = 1; //min
 let downDetected = 0;
 
 enum Status { UP = 'up', DOWN = 'down' }
+enum ThreadTitle {
+    UP = '🟢伺服器狀態-線上',
+    DOWN = '🔴伺服器狀態-停止'
+}
 
 export default class McsvStatus extends Handler {
     private curStatus: Status = Status.DOWN;
@@ -58,7 +62,7 @@ export default class McsvStatus extends Handler {
             enableSRV: false
         };
 
-        const pingRes = await execSync('ping khv3-1.speedtest.idv.tw -c 3 -q').catch(console.error);
+        const pingRes = await execSync('ping khv3-1.speedtest.idv.tw -c 3 -q').catch(()=>{});
         const avg = parseFloat(pingRes?.stdout.split('=')[1].split('/')[1] ?? '0');
         const c2pPing = Math.round(avg);
         
@@ -79,7 +83,7 @@ export default class McsvStatus extends Handler {
                     
                     offset = serverIP[0] === reverseProxyIP[0] ? c2pPing : -c2pPing ;
                 } catch (err) {
-                    console.error(err);
+                    log(err, this.options.info.name + '-reverseProxyHost');
                 }
             }
 
@@ -89,7 +93,7 @@ export default class McsvStatus extends Handler {
 
             if (err.message === 'Socket closed unexpectedly while waiting for data') return;
             if (err.message === 'Timed out while retrieving server status') return;
-            console.error(err);
+            log(err, this.options.info.name + '-checkStatus');
         }
     }
     
@@ -113,9 +117,10 @@ export default class McsvStatus extends Handler {
 
         // When server down.
         if (this.curStatus === Status.DOWN && downDetected >= 5) {
+            if (!this.detailMsg) return;
             log(`Server is ${this.curStatus} now.`, this.options.info.name);
 
-            this.threadCh?.edit({ name: '🔴伺服器狀態-停止 ' });
+            this.threadCh?.edit({ name: ThreadTitle.DOWN });
             this.detailMsg?.delete();
             this.detailMsg = null;
             this.lastSeen.clear();
@@ -124,7 +129,7 @@ export default class McsvStatus extends Handler {
         // When server up.
         if (this.curStatus === Status.UP && statusChanged) {
             log(`Server is ${this.curStatus} now.`, this.options.info.name);
-            await this.threadCh?.edit({ name: '🟢伺服器狀態-線上 ' });
+            await this.threadCh?.edit({ name: ThreadTitle.UP });
         }
 
         if (this.curStatus === Status.UP) {
@@ -172,7 +177,7 @@ export default class McsvStatus extends Handler {
                             ? '\\🟢'
                             : '\\🔵';
 
-        return new MessageEmbed({
+        return new EmbedBuilder({
             author: { name: '📄 伺服器資訊' },
             fields: [
                 { name: '線上人數\u2800\u2800', value: `${detail?.players.online} / ${detail?.players.max}`, inline: true },

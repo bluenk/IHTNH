@@ -1,15 +1,33 @@
-import { ButtonInteraction, Collection, CommandInteraction, Formatters, Interaction, Message, MessageActionRow, MessageButton, MessageComponentInteraction, MessageEmbedOptions, MessageOptions, MessageSelectMenu, User } from "discord.js";
+import {
+    ApplicationCommandOptionType,
+    ApplicationCommandType,
+    ChatInputCommandInteraction,
+    CommandInteraction,
+    Interaction,
+    Message,
+    ActionRowBuilder,
+    ButtonBuilder,
+    MessageComponentInteraction,
+    MessageEditOptions,
+    APIEmbed,
+    SelectMenuBuilder,
+    User,
+    codeBlock,
+    inlineCode,
+    bold,
+    ButtonStyle,
+    ButtonComponent,
+    AutocompleteInteraction,
+    CacheType
+} from "discord.js";
 import fetch from "node-fetch";
 import FormData from "form-data";
 import { log } from "../utils/logger";
 import { Client } from "../structures/Client";
 import { Command } from "../structures/Command";
-import MessageEmbed from "../structures/MessageEmbed";
+import EmbedBuilder from "../structures/EmbedBuilder";
 import ReplyDb, { ReplyData } from "../models/ReplyDb";
-import { Model, models } from "mongoose";
-import { reject, values } from "lodash";
-
-const { codeBlock, inlineCode, bold } = Formatters;
+import { Document, Model, Types } from "mongoose";
 
 enum SubCommand {
     NEW = 'new',
@@ -38,6 +56,9 @@ interface Props {
     author: User;
     replyMsg: Message;
     model: Model<ReplyData>;
+    doc: (Document<unknown, any, ReplyData> & ReplyData & {
+        _id: Types.ObjectId;
+    }) | null;
 }
 
 export default class Reply extends Command {
@@ -49,6 +70,8 @@ export default class Reply extends Command {
                 name: 'reply',
                 fullName: '建立/編輯觸發詞',
                 detail: '使用者打出特定詞彙時會回覆對應圖片。',
+                category: 'guild',
+                alias: [],
                 usage: ['reply new', 'reply edit'],
                 example:
                     'i.reply new 觸發詞 https://i.imgur.com/example.jpg' + '\n' +
@@ -59,23 +82,23 @@ export default class Reply extends Command {
             },
             commandOptions: [
                 {
-                    type: 'CHAT_INPUT',
+                    type: ApplicationCommandType.ChatInput,
                     name: 'reply',
                     description: '建立/編輯觸發詞',
                     options: [
                         {
-                            type: 'SUB_COMMAND',
+                            type: ApplicationCommandOptionType.Subcommand,
                             name: SubCommand.NEW,
                             description: '新增觸發詞',
                             options: [
                                 {
-                                    type: 'STRING',
+                                    type: ApplicationCommandOptionType.String,
                                     name: 'keyword',
                                     description: '觸發詞',
                                     required: true
                                 },
                                 {
-                                    type: 'STRING',
+                                    type: ApplicationCommandOptionType.String,
                                     name: 'url',
                                     description: '回應的圖片',
                                     required: true
@@ -83,15 +106,16 @@ export default class Reply extends Command {
                             ]
                         },
                         {
-                            type: 'SUB_COMMAND',
+                            type: ApplicationCommandOptionType.Subcommand,
                             name: SubCommand.EDIT,
                             description: '編輯觸發詞',
                             options: [
                                 {
-                                    type: 'STRING',
-                                    name: 'keyword',
+                                    type: ApplicationCommandOptionType.String,
+                                    name: 'edit_keyword',
                                     description: '目標觸發詞',
-                                    required: true
+                                    required: true,
+                                    autocomplete: true
                                 }
                             ]
                         }
@@ -100,8 +124,35 @@ export default class Reply extends Command {
             ]
         })
     }
+
+    public async autocomplete(i: AutocompleteInteraction<CacheType>) {
+        const value = i.options.getString('edit_keyword');
+        if (!value) return;
+        const model = new ReplyDb(this.client, i.guildId!).model;
+        
+        const ac = await model.aggregate([
+            {
+                $search: {
+                    autocomplete: {
+                        path: 'keyword',
+                        query: value
+                    }
+                },
+                
+            },
+            { $limit: 8 },
+            {
+                $project: {
+                    _id: 0,
+                    keyword: 1
+                }
+            }
+        ]).exec();
+
+        i.respond(ac.map(({ keyword }) => ({ name: keyword[0], value: keyword[0] })));
+    }
     
-    public async run(msg: CommandInteraction | Message, args: string[]) {
+    public async run(msg: ChatInputCommandInteraction | Message, args: string[]) {
         if (!msg.inGuild()) return;
         if (!msg.channel) return;
         
@@ -122,15 +173,15 @@ export default class Reply extends Command {
 
         if (msg instanceof Message) {
             // console.log({ args });
-            if (args.length < 3) return replyMsg.edit(this.sendErr('ARGS_MISSING'));
-            if (!(Object.values(SubCommand).find(v => v === args[1]))) return replyMsg.edit(this.sendErr('ARGS_MISSING'));
+            if (args.length < 3) return replyMsg.edit(this.makeErrMsg('ARGS_MISSING'));
+            if (!(Object.values(SubCommand).find(v => v === args[1]))) return replyMsg.edit(this.makeErrMsg('ARGS_MISSING'));
             subCommand = args[1];
             keyword = args[2];
 
             if (subCommand === SubCommand.NEW) {
                 content = args[3] || msg.attachments.first()?.url;
-                if (!content) return replyMsg.edit(this.sendErr('ARGS_MISSING'));
-                if ((msg.attachments.first()?.size! / 1024 / 1024) > 10) return this.replyMsg.get(msg.id)?.edit(this.sendErr('IMAGE_TOO_LARGE'));
+                if (!content) return replyMsg.edit(this.makeErrMsg('ARGS_MISSING'));
+                if ((msg.attachments.first()?.size! / 1024 / 1024) > 10) return this.replyMsg.get(msg.id)?.edit(this.makeErrMsg('IMAGE_TOO_LARGE'));
             }
         }
 
@@ -139,7 +190,8 @@ export default class Reply extends Command {
             content,
             author:  'author' in msg ? msg.author : msg.user,
             replyMsg,
-            model: new ReplyDb(this.client, msg.guildId).model
+            model: new ReplyDb(this.client, msg.guildId).model,
+            doc: null
         };
 
         switch (subCommand) {
@@ -156,7 +208,7 @@ export default class Reply extends Command {
         const { replyMsg, targetKeyword } = props;
         if (await this.checkKeywordExist(props, targetKeyword)) {
             replyMsg.edit({
-                content: this.sendErr('KEYWORD_EXIST'),
+                content: this.makeErrMsg('KEYWORD_EXIST'),
                 embeds: [await this.makeKeywordEmbed(props, 'conflict')]
             });
             return;
@@ -164,39 +216,41 @@ export default class Reply extends Command {
         const correct = await this.handleCheckMenu(props, props.replyMsg);
         if (!correct) return;
         const res = await this.uploadImgur(props);
-        if (!res) return replyMsg.edit(this.sendErr('IMAGE_UPLOAD_FAILED'));
+        if (!res) return replyMsg.edit(this.makeErrMsg('IMAGE_UPLOAD_FAILED'));
         await this.appendData(res, props);
         await replyMsg.edit(this.makeSuccessEmbed(res, props));
     }
 
     private async edit(props: Props) {
-        const { author, replyMsg, targetKeyword } = props;
+        const { author, replyMsg, targetKeyword, model } = props;
         if (!await this.checkKeywordExist(props, targetKeyword)) {
             replyMsg.edit({
-                content: this.sendErr('KEYWORD_NOT_EXIST')
+                content: this.makeErrMsg('KEYWORD_NOT_EXIST')
             });
             return;
         }
 
-        const btnRow = new MessageActionRow({
+        props.doc = await model.findOne({ keyword: targetKeyword })!.exec();
+
+        const btnRow = new ActionRowBuilder<ButtonBuilder>({
             components: [
-                new MessageButton({
-                    style: 'PRIMARY',
+                new ButtonBuilder({
+                    style: ButtonStyle.Primary,
                     customId: 'addKeyword',
                     label: '添加觸發詞'
                 }),
-                new MessageButton({
-                    style: 'PRIMARY',
+                new ButtonBuilder({
+                    style: ButtonStyle.Primary,
                     customId: 'addContent',
                     label: '添加圖片'
                 }),
-                new MessageButton({
-                    style: 'DANGER',
+                new ButtonBuilder({
+                    style: ButtonStyle.Danger,
                     customId: 'delete',
                     label: '刪除'
                 }),
-                new MessageButton({
-                    style: 'SECONDARY',
+                new ButtonBuilder({
+                    style: ButtonStyle.Secondary,
                     customId: 'exit',
                     label: '✖️'
                 })
@@ -211,7 +265,7 @@ export default class Reply extends Command {
 
         const collected = await this.handleComponents(menu, author);
 
-        await menu?.edit({ components: [new MessageActionRow({ components: [btnRow.components.pop()!] })] });
+        await menu?.edit({ components: [new ActionRowBuilder<ButtonBuilder>({ components: [btnRow.components.pop()!] })] });
 
         switch(collected.customId) {
             case 'exit':
@@ -237,7 +291,7 @@ export default class Reply extends Command {
             askMsg.channel.awaitMessages({ filter: msg => msg.author === author, max: 1 }),
             this.handleComponents(replyMsg, author)
         ])
-        if (collected instanceof Interaction) {
+        if (collected instanceof MessageComponentInteraction) {
             askMsg.delete();
             this.endMenu(replyMsg);
             return;
@@ -257,7 +311,7 @@ export default class Reply extends Command {
             if (!res) {
                 askMsg.delete();
                 resMsg.delete();
-                replyMsg.edit(this.sendErr('IMAGE_UPLOAD_FAILED'));
+                replyMsg.edit(this.makeErrMsg('IMAGE_UPLOAD_FAILED'));
                 return;
             }
 
@@ -268,7 +322,7 @@ export default class Reply extends Command {
         }
         if (mode === 'addKeyword') {
             if (await this.checkKeywordExist(props, resMsg.content)) {
-                replyMsg.edit({ content: this.sendErr('KEYWORD_EXIST') });
+                replyMsg.edit({ content: this.makeErrMsg('KEYWORD_EXIST') });
                 askMsg.delete();
                 return;
             }
@@ -277,7 +331,7 @@ export default class Reply extends Command {
 
 
         replyMsg.edit({
-            content: dbRes ? '\\✔️ | 操作成功，觸發詞已更新。' : this.sendErr('DB_UPDATE_FAILED'),
+            content: dbRes ? '\\✔️ | 操作成功，觸發詞已更新。' : this.makeErrMsg('DB_UPDATE_FAILED'),
             embeds: [await this.makeKeywordEmbed(props, 'preview')],
             components: []
         });
@@ -292,10 +346,11 @@ export default class Reply extends Command {
         const doc = await model.findOne({ keyword: targetKeyword });
         if (!doc) return;
         const noOptions = doc.keyword.length + doc.response.length === 2;
+        const menu = await replyMsg.fetch();
 
-        const seleteRow = new MessageActionRow({
+        const seleteRow = new ActionRowBuilder<SelectMenuBuilder>({
             components: [
-                new MessageSelectMenu({
+                new SelectMenuBuilder({
                     customId: 'list',
                     maxValues: 1,
                     options: [
@@ -305,25 +360,25 @@ export default class Reply extends Command {
                 })
             ]
         });
-        const optionsRow = new MessageActionRow({
+        const optionsRow = new ActionRowBuilder<ButtonBuilder>({
             components: [
-                new MessageButton({
-                    style: 'DANGER',
+                new ButtonBuilder({
+                    style: ButtonStyle.Danger,
                     customId: 'deleteAll',
                     label: '全部刪除',
                     emoji: '⚠️'
                 }),
-                ...replyMsg.components[0].components
+                ButtonBuilder.from(menu.components[0].components[0] as ButtonComponent)
             ]
         });
         const rows = noOptions ? [optionsRow] : [optionsRow, seleteRow];
 
-        await replyMsg.edit({
+        await menu.edit({
             content: noOptions ? '觸發詞與圖片無多餘選項時，將刪除**整個**觸發詞' : '請選擇要刪除的項目',
             components: rows
         });
 
-        const collected = await this.handleComponents(replyMsg, author);
+        const collected = await this.handleComponents(menu, author);
 
         let deletePart;
         let showPreview = true;
@@ -349,12 +404,12 @@ export default class Reply extends Command {
                     break;
 
                 case 'exit':
-                    this.endMenu(replyMsg);
+                    this.endMenu(menu);
                     return;
             }
         }
 
-        replyMsg.edit({
+        menu.edit({
             content: `\\✔️ | ${deletePart}已移除。`,
             embeds: showPreview ? [await this.makeKeywordEmbed(props, 'preview')] : [],
             components: []
@@ -365,7 +420,7 @@ export default class Reply extends Command {
         const { author, content } = props;
         return new Promise(async (resolve, reject) => {
             if (!this.isURL(content)) {
-                editMsg.edit(this.sendErr('URL_INCORRECT'));
+                editMsg.edit(this.makeErrMsg('URL_INCORRECT'));
                 return resolve(false);
             }
             editMsg.edit({ ...this.makeCheckMenu(props), content: '確認階段' });
@@ -413,28 +468,31 @@ export default class Reply extends Command {
         });
     }
 
-    private makeCheckMenu(props: Props): MessageOptions {
+    private makeCheckMenu(props: Props): MessageEditOptions {
         const { targetKeyword, content } = props;
-        const embed = new MessageEmbed()
-            .setAuthor({ name: '請確認以下內容是否正確' })
-            .addField('觸發詞', targetKeyword)
-            .setImage(content!)
-            .setFooter({ text: `時限 ${this.checkTime} 秒` });
+        const embed = new EmbedBuilder({
+           author: { name: '請確認以下內容是否正確' },
+           fields: [
+                { name: '觸發詞', value: targetKeyword }
+           ],
+           image: { url: content! },
+           footer: { text: `時限 ${this.checkTime} 秒` }
+        });
 
         const btn = [
-            new MessageButton({
+            new ButtonBuilder({
                 customId: 'yes',
                 label: 'Yes',
-                style: 'SUCCESS'
+                style: ButtonStyle.Success
             }),
-            new MessageButton({
+            new ButtonBuilder({
                 customId: 'no',
                 label: 'No',
-                style: 'DANGER'
+                style: ButtonStyle.Danger
             })
         ];
 
-        const row = new MessageActionRow({ components: btn });
+        const row = new ActionRowBuilder<ButtonBuilder>({ components: btn });
         return { embeds: [embed], components: [row] };
     }
 
@@ -521,23 +579,27 @@ export default class Reply extends Command {
     }
 
     private makeSuccessEmbed(imageRes: ImgurResData, props: Props) {
-        const {  targetKeyword, author } = props;
-        const embed = new MessageEmbed()
-            .setTitle('\\✨ | 觸發詞成功加入清單!')
-            .addField('觸發詞', targetKeyword, true)
-            .addField('申請人', `<@${author.id}>`, true)
-            .setImage(imageRes.link)
-            .showVersion();
+        const { targetKeyword, author } = props;
+        const embed = new EmbedBuilder({
+           title: '\\✨ | 觸發詞成功加入清單!',
+           fields: [
+                { name: '觸發詞', value: targetKeyword, inline: true },
+                { name: '申請人', value: `<@${author.id}>`, inline: true }
+           ],
+           image: { url: imageRes.link }
+        }).showVersion();
+
         return { embeds: [embed] , content: ' '}
     }
 
     private async makeKeywordEmbed(props: Props, type: 'preview' | 'conflict') {
-        const { model, targetKeyword } = props;
-        const doc = await model.findOne({ keyword: targetKeyword })!.exec();
-        if (!doc) throw Error('Keyword not founded');
+        const { model, targetKeyword, doc: dDoc } = props;
 
-        let embedOptions: MessageEmbedOptions;
-        const defaultOptions: MessageEmbedOptions = {
+        const doc = await model.findOne(dDoc ? { _id: dDoc._id } : { keyword: targetKeyword })!.exec();
+        if (!doc) throw Error('Keyword not found');
+
+        let embedOptions: APIEmbed;
+        const defaultOptions: APIEmbed = {
             fields: [
                 {
                     name: '觸發詞\u2800\u2800',
@@ -569,7 +631,7 @@ export default class Reply extends Command {
                 break;
         }
 
-        return new MessageEmbed({ ...defaultOptions, ...embedOptions });
+        return new EmbedBuilder({ ...defaultOptions, ...embedOptions });
     }
 
     private async endMenu(menu: Message) {
@@ -579,7 +641,7 @@ export default class Reply extends Command {
         })
     }
 
-    private sendErr(type: ErrorType) {
+    private makeErrMsg(type: ErrorType) {
         const hint =
             codeBlock('用法: i.reply <new|edit> <關鍵字> [圖片網址]') + '\n' +
             '常常打錯指令嗎？又或者忘記指令怎麼打嗎？斜線指令或許正適合你，在對話框輸入\`/\`試試看吧！\n\n' +

@@ -1,4 +1,4 @@
-import { Collection, CommandInteraction, ContextMenuInteraction, Interaction } from "discord.js";
+import { CommandInteraction, ContextMenuCommandInteraction, Interaction } from "discord.js";
 import { Client } from "../structures/Client";
 import { Event } from "../structures/Event";
 
@@ -9,9 +9,8 @@ export default class InteractionCreate extends Event {
 
     public async execute(i: Interaction) {
         let commandName: string;
-        if (!(i instanceof CommandInteraction || i instanceof ContextMenuInteraction)) return;
-        if (i.isCommand()) commandName = i.commandName;
-        if (i.isContextMenu()) commandName = i.commandName;
+        if (!(i.isChatInputCommand() || i.isContextMenuCommand() || i.isAutocomplete())) return;
+        if (!(i.isSelectMenu() || i.isButton() || i.isModalSubmit())) commandName = i.commandName;
 
         const names = this.client.commands.collection.map(command => {
             const { commandOptions } = command.options;
@@ -22,9 +21,14 @@ export default class InteractionCreate extends Event {
             }
         });
         const target = names.find(v => v?.name.includes(commandName))!;
+        const command = this.client.commands.collection.get(target?.command)!;
 
-        const command = this.client.commands.collection.get(target?.command);
-        if (command?.options.info.enable) {
+        if (i.isAutocomplete()) {
+            command.autocomplete!(i);
+            return;
+        }
+
+        if (command.options.info.enable) {
             command.run(i);
         } else {
             i.reply('\\⛔ | 此指令停用中');

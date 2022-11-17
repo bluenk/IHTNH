@@ -1,6 +1,8 @@
 import {
-    CommandInteraction,
-    ContextMenuInteraction,
+    ApplicationCommandOptionType,
+    ApplicationCommandType,
+    ChatInputCommandInteraction,
+    ContextMenuCommandInteraction,
     DMChannel,
     Interaction,
     Message,
@@ -11,7 +13,7 @@ import fetch from "node-fetch";
 import { Command } from "../structures/Command";
 import { log } from "../utils/logger";
 import { Client } from "../structures/Client";
-import MessageEmbed from "../structures/MessageEmbed";
+import EmbedBuilder from "../structures/EmbedBuilder";
 
 export default class Reurl extends Command {
     public constructor(public client: Client) {
@@ -20,6 +22,8 @@ export default class Reurl extends Command {
                 name: 'reurl',
                 fullName: 'reurl縮網址產生器',
                 detail: '透過reurl.cc產生縮網址。',
+                category: 'others',
+                alias: [],
                 usage: ['reurl'],
                 example:
                     'i.reurl https://www.google.com/' + '\n' +
@@ -28,12 +32,12 @@ export default class Reurl extends Command {
             },
             commandOptions: [
                 {
-                    type: 'CHAT_INPUT',
+                    type: ApplicationCommandType.ChatInput,
                     name: 'reurl',
                     description: '縮網址',
                     options: [
                         {
-                            type: 'STRING',
+                            type: ApplicationCommandOptionType.String,
                             name: 'url',
                             description: '要轉換的網址',
                             required: true
@@ -41,7 +45,7 @@ export default class Reurl extends Command {
                     ]
                 },
                 {
-                    type: 'MESSAGE',
+                    type: ApplicationCommandType.Message,
                     name: '產生縮網址'
                 }
             ]
@@ -49,18 +53,18 @@ export default class Reurl extends Command {
     }
 
     public async run(msg: Interaction | Message, args: string[]) {
-        if (msg instanceof CommandInteraction) {
-            const url = msg.options.getString('url');
-            if (!url) return msg.reply('未收到URL，請確認是否輸入正確?');
+        if (msg instanceof ChatInputCommandInteraction) {
+            const url = msg.options.getString('url')!;
+            if (!this.isURL(url)) return msg.reply('\\❌ | 未收到URL，請確認是否輸入正確？');
 
             const embed = await this.makeURL(url);
             if (!embed) return;
 
             msg.reply({ embeds: [embed], ephemeral: true });
         }
-        if (msg instanceof ContextMenuInteraction) {
+        if (msg instanceof ContextMenuCommandInteraction) {
             const targetMsg = await msg.channel?.messages.fetch(msg.targetId);
-            console.log({ msg, targetMsg })
+            // console.log({ msg, targetMsg })
                 // .then(channel => {
                 //     if (
                 //         channel instanceof TextChannel ||
@@ -70,9 +74,9 @@ export default class Reurl extends Command {
                 //         return channel.messages.fetch(msg.id);
                 //     }
                 // });
-            if (!targetMsg) return msg.reply('未取得到網址，可能已被刪除或權限不足。');
+            if (!targetMsg) return this.sendRes('未取得到網址，可能已被刪除或權限不足。', msg, false, true);
             const urls = targetMsg.content.match(/\bhttps?:\/\/\S+/gi);
-            if (!urls) return;
+            if (!urls) return this.sendRes('未偵測到網址。', msg, false, true);
 
             const embed = await this.makeURL(urls[0]);
             if (!embed) return; 
@@ -112,8 +116,7 @@ export default class Reurl extends Command {
         if (!('res' in data)) return log("Missing 'res' property in response data.", 'reurl');
         if (data.res !== 'success') return log('Resopnse status: ' + data.res, 'reurl');
 
-        return new MessageEmbed()
-            .setDescription(data.short_url)
+        return new EmbedBuilder({ description: data.short_url });
     }
 }
 

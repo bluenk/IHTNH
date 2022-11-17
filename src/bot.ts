@@ -1,25 +1,26 @@
-import { Intents, Formatters } from 'discord.js';
+import { GatewayIntentBits, codeBlock } from 'discord.js';
 import { Client } from './structures/Client';
 import 'dotenv/config';
-const { codeBlock } = Formatters;
 
 const client = new Client({
     intents: [
-        Intents.FLAGS.GUILDS,
-        Intents.FLAGS.GUILD_MESSAGES,
-        Intents.FLAGS.GUILD_VOICE_STATES,
-        Intents.FLAGS.DIRECT_MESSAGES
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.GuildVoiceStates,
+        GatewayIntentBits.DirectMessages,
+        GatewayIntentBits.MessageContent
     ]
 });
 
 client.start();
 
 
-
+// Caught unexcept errors to prevent process exiting and notify owner.
+// 防止程式因為例外狀況而停止執行，並通知擁有者。
 process.on('uncaughtException', async (err) => {
     if (process.env.NODE_ENV === 'pro') {
-        const bluenk = await client.users.fetch(process.env.OWNER_ID!);
-        const DMCh = await bluenk.createDM();
+        const owner = await client.users.fetch(process.env.OWNER_ID!);
+        const DMCh = await owner.createDM();
         DMCh.send('uncaughtException detected' + codeBlock('js', err.stack || err.message));
     }
     console.error(err);

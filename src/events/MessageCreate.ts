@@ -11,26 +11,40 @@ export default class MessageCreate extends Event {
     }
 
     public async execute(msg: Message) {
-        // console.log(msg);
-        if (msg.author.bot) return;
-
         let hasPrefix = false;
         let hasAttachments = false;
         if (msg.content.startsWith(process.env.NODE_ENV === 'pro' ? 'i.' : 'i,')) hasPrefix = true;
         if (msg.attachments.size) hasAttachments = true;
 
         const args = msg.content.substring(2).split(' ');
+        
+        // console.log({args, content: msg.content});
 
-        // if (hasPrefix && args[0] === 'ping') {
-        //     msg.reply('pong!');
-        // }
+        if (msg.author === this.client.user) return;
+
+        // AntiScam url check and PreviewFix.
+        const hasUrl = msg.content.match(/(https?:\/\/[^ ]*)/g);
+        const urlHandlers = ['antiScam', 'previewFix'];
+        if (hasUrl) {
+            for (const name of urlHandlers) {
+                this.client.handlers.collection.get(name)?.run(msg);
+            }
+        }
+
+        if (msg.author.bot) return;
 
         // Handle prefix commands.
-        if (hasPrefix && this.client.commands.collection.has(args[0].toLowerCase())) {
-            log(`User ${msg.author.tag} has triggered the ${args[0]} command.`, this.name);
-            const command = this.client.commands.collection.get(args[0].toLowerCase());
-            if (command?.options.info.enable) {
-                command.run(msg, args);
+        const matchedCommand = this.client.commands.collection
+            .find(c => [...c.options.info.alias, c.options.info.name].includes(args[0].toLowerCase()));
+        if (hasPrefix && matchedCommand) {
+            log(
+                `User ${msg.author.tag} has triggered the ${matchedCommand.options.info.name} command. ` +
+                `=> args: ${args}`,
+                this.name
+            );
+
+            if (matchedCommand.options.info.enable) {
+                matchedCommand.run(msg, args);
             } else {
                 msg.reply('\\⛔ | 此指令目前停用中');
             }
@@ -51,15 +65,6 @@ export default class MessageCreate extends Event {
                     sended.edit({ content: ' ', files: [img] });
                 }
             }, 1500)
-        }
-
-        // AntiScam url check and PreviewFix.
-        const hasUrl = msg.content.match(/(https?:\/\/[^ ]*)/g);
-        const urlHandlers = ['antiScam', 'previewFix'];
-        if (hasUrl) {
-            for (const name of urlHandlers) {
-                this.client.handlers.collection.get(name)?.run(msg);
-            }
         }
     }
 }

@@ -1,4 +1,4 @@
-import { ApplicationCommandData, Collection, CommandInteraction, ContextMenuInteraction, Interaction, Message, MessageOptions } from "discord.js";
+import { ApplicationCommandData, AutocompleteInteraction, CacheType, ChatInputCommandInteraction, Collection, CommandInteraction, ContextMenuCommandInteraction, Guild, Interaction, Message, MessageEditOptions, TextBasedChannel, TextChannel, WebhookEditMessageOptions } from "discord.js";
 import { Client } from "./Client";
 
 export interface CommandOptionsData {
@@ -6,6 +6,8 @@ export interface CommandOptionsData {
         name: string;
         fullName: string;
         detail: string;
+        category: 'core' | 'guild' | 'others'
+        alias: string[];
         usage: string[];
         example: string;
         enable: boolean;
@@ -20,6 +22,8 @@ export abstract class Command {
 
     public abstract run(msg: Message | Interaction | CommandInteraction, args?: string[]): void;
 
+    public autocomplete?(i: AutocompleteInteraction<CacheType>): void;
+
     protected isURL(str: unknown) {
         if (!(typeof str === 'string')) return false;
         try {
@@ -30,12 +34,19 @@ export abstract class Command {
         }
     }
 
-    protected async editReply(options: MessageOptions, msg: CommandInteraction | ContextMenuInteraction | Message) {
+    protected async editReply(options: MessageEditOptions, msg: CommandInteraction | ContextMenuCommandInteraction | Message) {
         // Can't edit ephemeral message, use <Interaction>.editReply instead.
-        if (msg instanceof ContextMenuInteraction) {
-            return msg.editReply(options);
+        if (msg instanceof ContextMenuCommandInteraction) {
+            return msg.editReply(options as WebhookEditMessageOptions);
         } else {
-            return this.replyMsg.get(msg.id)?.edit(options);
+            return this.replyMsg.get(msg.id)!.edit(options);
         }
+    }
+
+    protected sendRes(content: string, target: Message | ChatInputCommandInteraction | ContextMenuCommandInteraction, success: boolean, ephemeral: boolean = false) {
+        target.reply({
+            content: (success ? '\\✔️ | ' : '\\❌ | ') + content,
+            ephemeral
+        });
     }
 }
