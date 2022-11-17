@@ -58,14 +58,16 @@ export default class Help extends Command {
                 description: options.info.detail,
                 fields: [
                     {
+                        name: '別名',
+                        value: options.info.alias.map(a => inlineCode(a)).join(' ') || '無'
+                    },
+                    {
                         name: '使用',
-                        value: options.info.usage.join('\n') ?? 'N/A',
-                        inline: false
+                        value: options.info.usage.join('\n') || 'N/A',
                     },
                     {
                         name: '範例',
-                        value: inlineCode(options.info.example ?? 'N/A'),
-                        inline: false
+                        value: inlineCode(options.info.example || 'N/A'),
                     }
                 ]
             }).showVersion();
