@@ -141,12 +141,12 @@ export default class Search extends Command {
         const firstEmbed = resultEmbeds[index].setFooter(this.footerOptions(index, resultEmbeds.length));
         const msgOptions = { embeds: [firstEmbed], components: [row], content: ' ' };
 
-        await this.editReply(msgOptions, msg);
+        let newestReply = await this.editReply(msgOptions, msg);
 
         const filter = (interaction: Interaction) => interaction.user.id == ('author' in msg ? msg.author.id : msg.user.id);
         const collector = this.replyMsg.get(msg.id)!.createMessageComponentCollector({ filter, time: 1 * 60 * 1000 })
 
-        collector.on('collect', (interaction: MessageComponentInteraction) => {
+        collector.on('collect', async (interaction: MessageComponentInteraction) => {
             const updateOptions: InteractionUpdateOptions = {};
 
             // Handle buttons.
@@ -168,13 +168,14 @@ export default class Search extends Command {
 
             if (!(updateOptions.embeds![0] instanceof EmbedBuilder)) return;
             updateOptions.embeds![0].setFooter(this.footerOptions(index, resultEmbeds.length));
-            interaction.update(updateOptions);
+            await interaction.update(updateOptions);
+            newestReply = await interaction.fetchReply();
         });
 
-        collector.once('end', async () => {
+        collector.once('end', async (c) => {
             row.components.forEach(btn => btn.setDisabled(true));
-            const menuEmbed = (await this.replyMsg.get(msg.id)!.fetch()).embeds[0];
-            console.log(menuEmbed);
+            const menuEmbed = newestReply.embeds[0];
+            
             this.editReply({
                 embeds: [
                     EmbedBuilder.from(menuEmbed)
