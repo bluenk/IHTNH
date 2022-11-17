@@ -39,7 +39,7 @@ export abstract class Command {
         if (msg instanceof ContextMenuCommandInteraction) {
             return msg.editReply(options as WebhookEditMessageOptions);
         } else {
-            return this.replyMsg.get(msg.id)?.edit(options);
+            return this.replyMsg.get(msg.id)!.edit(options);
         }
     }
 
