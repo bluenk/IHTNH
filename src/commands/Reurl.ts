@@ -74,9 +74,9 @@ export default class Reurl extends Command {
                 //         return channel.messages.fetch(msg.id);
                 //     }
                 // });
-            if (!targetMsg) return msg.reply('未取得到網址，可能已被刪除或權限不足。');
+            if (!targetMsg) return this.sendRes('未取得到網址，可能已被刪除或權限不足。', msg, false, true);
             const urls = targetMsg.content.match(/\bhttps?:\/\/\S+/gi);
-            if (!urls) return;
+            if (!urls) return this.sendRes('未偵測到網址。', msg, false, true);
 
             const embed = await this.makeURL(urls[0]);
             if (!embed) return; 
