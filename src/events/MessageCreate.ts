@@ -20,6 +20,8 @@ export default class MessageCreate extends Event {
         
         // console.log({args, content: msg.content});
 
+        if (msg.author === this.client.user) return;
+
         // AntiScam url check and PreviewFix.
         const hasUrl = msg.content.match(/(https?:\/\/[^ ]*)/g);
         const urlHandlers = ['antiScam', 'previewFix'];
