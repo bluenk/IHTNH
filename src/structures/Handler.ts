@@ -13,8 +13,12 @@ export interface HandlerOptionsData {
 export abstract class Handler {
     constructor(public client: Client, public options: HandlerOptionsData) { }
 
-    // Execute at ready.
+    /**
+     * Execute at ready.
+     **/
     public abstract execute(): void;
-    // Execute at events.
+    /**
+     * Execute at events.
+     **/
     public abstract run(msg: Message): void;
 }
