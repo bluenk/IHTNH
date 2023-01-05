@@ -165,7 +165,7 @@ export default class Reply extends Command {
         // Get keyword and url.
         if (msg instanceof CommandInteraction) {
             subCommand = msg.options.getSubcommand(true);
-            keyword = msg.options.getString('keyword')!;
+            keyword = msg.options.getString('edit_keyword')!;
             if (subCommand === SubCommand.NEW) {
                 content = msg.options.getString('url')!;
             }
