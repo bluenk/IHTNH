@@ -180,7 +180,7 @@ export default class PreviewFix extends Handler {
             description,
             thumbnail: { url: image },
             footer: { text: author.name },
-            timestamp: (new Date(datePublished).getTime() / 1000).toString()
+            timestamp: datePublished
         });
     }
 
