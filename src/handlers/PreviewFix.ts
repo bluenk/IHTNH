@@ -7,8 +7,8 @@ import { log } from "../utils/logger";
 import EmbedBuilder from "../structures/EmbedBuilder";
 import urlMetadata from "url-metadata";
 
-const embedCheckDelay = 5; //sec
-const embedDeleteTimeout = 0.5; //min
+const embedCheckDelay = 8; //sec
+const embedDeleteTimeout = 1; //min
 
 interface TweetLookupData {
     data: {
@@ -180,7 +180,7 @@ export default class PreviewFix extends Handler {
             description,
             thumbnail: { url: image },
             footer: { text: author.name },
-            timestamp: (new Date(datePublished).getTime() / 1000).toString()
+            timestamp: datePublished
         });
     }
 

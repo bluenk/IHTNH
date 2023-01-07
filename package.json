@@ -1,6 +1,6 @@
 {
   "name": "ihtnh",
-  "version": "0.20.0",
+  "version": "0.20.1",
   "description": "discord bot",
   "main": "bot.js",
   "dependencies": {
@@ -30,7 +30,7 @@
     "ytdl-core": "^4.11.2"
   },
   "engines": {
-    "node": ">=16.6.0 <17"
+    "node": ">=16.9.0 <17"
   },
   "scripts": {
     "start": "cross-env NODE_ENV=pro node ./dist/bot.js",
