@@ -72,6 +72,7 @@ export default class McsvStatus extends Handler {
 
             if (err.message === 'Socket closed unexpectedly while waiting for data') return;
             if (err.message === 'Timed out while retrieving server status') return;
+            if (String.prototype.includes.call(err.message, 'EHOSTUNREACH')) return;
             log(err, this.options.info.name + '-checkStatus');
         }
     }
