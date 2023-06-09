@@ -61,43 +61,23 @@ export default class McsvStatus extends Handler {
             timeout: 1000 * 15,
             enableSRV: false
         };
-
-        const pingRes = await execSync('ping khv3-1.speedtest.idv.tw -c 3 -q').catch(()=>{});
-        const avg = parseFloat(pingRes?.stdout.split('=')[1].split('/')[1] ?? '0');
-        const c2pPing = Math.round(avg);
         
         try {
             const status = await util.status(host, 25565, options);
             const query = await util.queryFull(host, 25565, options).catch(console.error) ?? undefined;
 
-            // Check the server IP to offset the difference in latency between clitnt and player.
-            // If serverIP equal to reverseProxyIP => Reverse proxy.*
-            // * Cilent and Proxy are on the same machine.
-            // Using proxy:     player <──c2pPing + localLatency──> proxy/client <──c2pPing + localLatency──> server
-            // Not using proxy: player <──localLatency──> server, clint <──c2pPing + localLatency──> server
-            let offset = 0;
-            if (reverseProxyHost) {
-                try {
-                    const serverIP = await dnsResolve(host);
-                    const reverseProxyIP = await dnsResolve(process.env.MC_REVERSE_PROXY_HOST!);
-                    
-                    offset = serverIP[0] === reverseProxyIP[0] ? c2pPing : -c2pPing ;
-                } catch (err) {
-                    log(err, this.options.info.name + '-reverseProxyHost');
-                }
-            }
-
-            this.handleStatus(Status.UP, query, status.roundTripLatency + offset);
+            this.handleStatus(Status.UP, query);
         } catch(err: any) {
             this.handleStatus(Status.DOWN);
 
             if (err.message === 'Socket closed unexpectedly while waiting for data') return;
             if (err.message === 'Timed out while retrieving server status') return;
+            if (String.prototype.includes.call(err.message, 'EHOSTUNREACH')) return;
             log(err, this.options.info.name + '-checkStatus');
         }
     }
     
-    private async handleStatus(newStatus: Status, detail?: FullQueryResponse, latency?: number) {
+    private async handleStatus(newStatus: Status, detail?: FullQueryResponse) {
         setTimeout(() => this.checkStatus(), 1000 * 60 * fetchDelay);
 
         this.preStatus = this.curStatus;
@@ -153,7 +133,7 @@ export default class McsvStatus extends Handler {
                 this.lastSeen.set(player, Math.floor(Date.now() / 1000));
             }
 
-            const embed = this.makeDetailEmbed(latency!, detail);
+            const embed = this.makeDetailEmbed(detail);
 
             if (this.detailMsg) {
                 this.detailMsg.edit({ embeds: [embed] });
@@ -164,24 +144,14 @@ export default class McsvStatus extends Handler {
         }
     }
 
-    private makeDetailEmbed(latency: number, detail?: FullQueryResponse) {
+    private makeDetailEmbed(detail?: FullQueryResponse) {
         const groupN = 3;
-        const latencyIndicator =
-            latency >= 150
-                ? '\\🔴'
-                : latency >= 120
-                    ? '\\🟠'
-                    : latency >= 80
-                        ? '\\🟡'
-                        : latency >= 30
-                            ? '\\🟢'
-                            : '\\🔵';
 
         return new EmbedBuilder({
             author: { name: '📄 伺服器資訊' },
             fields: [
                 { name: '線上人數\u2800\u2800', value: `${detail?.players.online} / ${detail?.players.max}`, inline: true },
-                { name: '延遲', value:  `${latencyIndicator} ${latency}ms`, inline: true },
+                // { name: '延遲', value:  `${latencyIndicator} ${latency}ms`, inline: true },
                 { name: '\u200b', value: '\u200b', inline: true },
                 {
                     name: '在線玩家',

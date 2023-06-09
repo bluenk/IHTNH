@@ -172,14 +172,15 @@ export default class PreviewFix extends Handler {
     }
         
     private makeLineTodayEmbed(data: urlMetadata.Result) {
-        const { publisher, datePublished, author, headline, description, image } = data.jsonld;
+        const { publisher, datePublished, provider, headline, description, image } = data.jsonld;
+        console.log(data.jsonld);
         return new EmbedBuilder({
             url: data.url,
             author: { name: publisher.name },
             title: headline,
             description,
             thumbnail: { url: image },
-            footer: { text: author.name },
+            footer: { text: provider.name },
             timestamp: datePublished
         });
     }

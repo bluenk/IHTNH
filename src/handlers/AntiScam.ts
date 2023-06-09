@@ -35,11 +35,11 @@ export default class AntiScam extends Handler {
             log('Checking url => ' + url, this.options.info.name);
             const domainWithPath = url.split('://')[1];
             const domain = domainWithPath.split('/')[0];
-            // console.log({ url, domainWithPath, domain });
+            console.log({ url, domainWithPath, domain });
 
             if (
                 this.domains.some((scamDomain, i) => {
-                    if (domainWithPath.startsWith(scamDomain)) {
+                    if (domain === scamDomain) {
                         log(`**SCAM LINK DETECTED**\nURL match with domain name "` + this.domains[i] + '" send by ' + msg.author.tag, this.options.info.name);
                         return true;
                     }
@@ -54,7 +54,7 @@ export default class AntiScam extends Handler {
                             ch.send({
                                 embeds: [
                                     new EmbedBuilder({
-                                        title: `自動踢除`,
+                                        title: `自動禁言`,
                                         fields: [
                                             { name: '使用者', value: thisMsg.author.tag, inline: true },
                                             { name: '原因', value: '發送釣魚連結', inline: true }
@@ -63,12 +63,12 @@ export default class AntiScam extends Handler {
                                 ]
                             });
 
-                            ch.guild.members.kick(thisMsg.author.id, '發送釣魚連結');
+                            thisMsg.member?.timeout(3600*1000, '發送釣魚連結');
                             return;
                         }
                         this.badUsers.push(thisMsg.author.id);
                         // console.log({badUsers});
-                        ch.send(`<@${thisMsg.author.id}> ` + '偵測到釣魚連結，已自動移除。請注意累犯將直接踢除!');
+                        ch.send(`<@${thisMsg.author.id}> ` + '偵測到釣魚連結，已自動移除。請注意累犯將會被禁言！');
                     })
                 })
             }
