@@ -1,6 +1,6 @@
-import { Client } from "../structures/Client";
-import { Event } from "../structures/Event";
-import Loader from "../structures/Loader";
+import { Client } from "../structures/Client.js";
+import { Event } from "../structures/Event.js";
+import Loader from "../structures/Loader.js";
 
 export default class EventLoader extends Loader {
     public constructor(public client: Client) { super() }

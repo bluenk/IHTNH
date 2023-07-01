@@ -24,11 +24,11 @@ import {
     ButtonComponent
 } from "discord.js";
 import ytdl, { videoInfo } from "ytdl-core";
-import { Client } from "../structures/Client";
-import { Command } from "../structures/Command";
-import EmbedBuilder from "../structures/EmbedBuilder";
-import { log } from "../utils/logger";
 import { EventEmitter } from "events";
+import { Client } from "../structures/Client.js";
+import { Command } from "../structures/Command.js";
+import EmbedBuilder from "../structures/EmbedBuilder.js";
+import { log } from "../utils/logger.js";
 
 enum ErrorMsg {
     URL_MISSING = '缺少網址。',

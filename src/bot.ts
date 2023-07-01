@@ -1,5 +1,5 @@
 import { GatewayIntentBits, codeBlock } from 'discord.js';
-import { Client } from './structures/Client';
+import { Client } from './structures/Client.js';
 import 'dotenv/config';
 
 const client = new Client({

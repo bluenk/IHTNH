@@ -16,10 +16,10 @@ import {
     ButtonStyle
 } from "discord.js";
 import sagiri, { SagiriResult } from "sagiri";
-import { log } from "../utils/logger";
-import { Client } from "../structures/Client";
-import { Command } from "../structures/Command";
-import EmbedBuilder from "../structures/EmbedBuilder";
+import { log } from "../utils/logger.js";
+import { Client } from "../structures/Client.js";
+import { Command } from "../structures/Command.js";
+import EmbedBuilder from "../structures/EmbedBuilder.js";
 const SC = sagiri(process.env.SAUCENAO_TOKEN!);
 
 type SagiriResultFix = SagiriResult & {

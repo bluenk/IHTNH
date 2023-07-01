@@ -1,9 +1,9 @@
 import { Message } from "discord.js";
-import { log } from "../utils/logger";
-import ReplyDb from "../models/ReplyDb";
-import { Client } from "../structures/Client";
-import { Event } from "../structures/Event";
-import random from "../utils/random";
+import { log } from "../utils/logger.js";
+import ReplyDb from "../models/ReplyDb.js";
+import { Client } from "../structures/Client.js";
+import { Event } from "../structures/Event.js";
+import random from "../utils/random.js";
 
 export default class MessageCreate extends Event {
     public constructor(client: Client) {

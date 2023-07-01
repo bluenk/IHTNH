@@ -1,10 +1,10 @@
 import { Collection, Message, ThreadChannel } from "discord.js";
-import { Client } from "../structures/Client";
-import { Handler } from "../structures/Handler";
-import EmbedBuilder from "../structures/EmbedBuilder";
+import { Client } from "../structures/Client.js";
+import { Handler } from "../structures/Handler.js";
+import EmbedBuilder from "../structures/EmbedBuilder.js";
 import * as util from "minecraft-server-util";
 import { FullQueryResponse } from "minecraft-server-util";
-import { log } from "../utils/logger";
+import { log } from "../utils/logger.js";
 import _ from "lodash";
 import dns from "dns";
 import { promisify } from "util";

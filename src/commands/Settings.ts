@@ -9,9 +9,9 @@ import {
     ChatInputCommandInteraction,
     PresenceStatusData
 } from "discord.js";
-import { Client } from "../structures/Client";
-import { Command } from "../structures/Command"
-import { loggerInit } from "../utils/logger";
+import { Client } from "../structures/Client.js";
+import { Command } from "../structures/Command.js"
+import { loggerInit } from "../utils/logger.js";
 
 const log = loggerInit('settings');
 

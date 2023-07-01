@@ -1,5 +1,5 @@
-import PostRoute from "./routes/PostRoute";
-import GetRoute from "./routes/GetRoute";
+import PostRoute from "./routes/PostRoute.js";
+import GetRoute from "./routes/GetRoute.js";
 
 export const router = [
     PostRoute,

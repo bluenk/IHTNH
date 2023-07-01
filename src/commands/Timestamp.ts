@@ -1,7 +1,7 @@
 import { Message, Interaction, CacheType, CommandInteraction, ApplicationCommandOptionChoiceData, ApplicationCommandType, ApplicationCommandOptionType, ChatInputCommandInteraction } from "discord.js";
-import { Client } from "../structures/Client";
-import { Command } from "../structures/Command"
-import EmbedBuilder from "../structures/EmbedBuilder";
+import { Client } from "../structures/Client.js";
+import { Command } from "../structures/Command.js"
+import EmbedBuilder from "../structures/EmbedBuilder.js";
 
 export default class Timestamp extends Command{
     public constructor(client: Client) {

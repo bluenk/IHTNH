@@ -1,5 +1,5 @@
 import { Message } from "discord.js";
-import { Client } from "./Client";
+import { Client } from "./Client.js";
 
 export interface HandlerOptionsData {
     info: {

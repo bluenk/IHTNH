@@ -1,6 +1,6 @@
 import { CommandInteraction, ContextMenuCommandInteraction, Interaction } from "discord.js";
-import { Client } from "../structures/Client";
-import { Event } from "../structures/Event";
+import { Client } from "../structures/Client.js";
+import { Event } from "../structures/Event.js";
 
 export default class InteractionCreate extends Event {
     public constructor(client: Client) {

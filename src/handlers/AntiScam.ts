@@ -1,12 +1,13 @@
 import { DMChannel, Message, PartialGroupDMChannel } from 'discord.js';
 import fs from 'fs/promises';
-import { join } from 'path';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import fetch from 'node-fetch';
-import { Client } from "../structures/Client";
-import { Handler } from "../structures/Handler";
-import EmbedBuilder from '../structures/EmbedBuilder';
-import { log } from "../utils/logger";
-import extractURL from '../utils/extractURL';
+import { Client } from "../structures/Client.js";
+import { Handler } from "../structures/Handler.js";
+import EmbedBuilder from "../structures/EmbedBuilder.js";
+import { log } from "../utils/logger.js";
+import extractURL from "../utils/extractURL.js";
 
 export default class AntiScam extends Handler {
     private domains: string[] = [];
@@ -105,7 +106,7 @@ export default class AntiScam extends Handler {
         if (!githubDomains.length) {
             return console.error(new Error('Did not recive data from github.'));
         }
-        const customDomains: string[] = JSON.parse((await fs.readFile(join(__dirname, '../../assets/customDomains.json'))).toString()).domains;
+        const customDomains: string[] = JSON.parse((await fs.readFile(join(dirname(fileURLToPath(import.meta.url)), '../../assets/customDomains.json'))).toString()).domains;
 
         return [...new Set(customDomains.concat(githubDomains))];
     }

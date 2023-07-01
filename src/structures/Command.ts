@@ -1,5 +1,5 @@
 import { ApplicationCommandData, AutocompleteInteraction, CacheType, ChatInputCommandInteraction, Collection, CommandInteraction, ContextMenuCommandInteraction, Guild, Interaction, InteractionEditReplyOptions, Message, MessageEditOptions } from "discord.js";
-import { Client } from "./Client";
+import { Client } from "./Client.js";
 
 export interface CommandOptionsData {
     info: {

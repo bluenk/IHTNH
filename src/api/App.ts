@@ -1,9 +1,9 @@
 import express from 'express';
 import morgan from 'morgan';
 import xmlPraser from 'express-xml-bodyparser';
-import { Client } from '../structures/Client';
-import { router } from './router';
-import { log } from '../utils/logger';
+import { Client } from '../structures/Client.js';
+import { router } from './router.js';
+import { log } from '../utils/logger.js';
 
 export default class App {
     private readonly app;
