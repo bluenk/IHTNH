@@ -16,7 +16,7 @@ export default class HandlerLoader extends Loader {
         console.log('Handler modules: ', handlers.map(c => c.options.info.name));
 
         for (const handler of handlers) {
-            this.client.handlers.collection.set(handler.options.info.name, handler)
+            this.collection.set(handler.options.info.name, handler)
         }
     }
 }
