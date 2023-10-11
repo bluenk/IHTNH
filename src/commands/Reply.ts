@@ -22,11 +22,11 @@ import {
 } from "discord.js";
 import fetch from "node-fetch";
 import FormData from "form-data";
-import { log } from "../utils/logger";
-import { Client } from "../structures/Client";
-import { Command } from "../structures/Command";
-import EmbedBuilder from "../structures/EmbedBuilder";
-import ReplyDb, { ReplyData } from "../models/ReplyDb";
+import { log } from "../utils/logger.js";
+import { Client } from "../structures/Client.js";
+import { Command } from "../structures/Command.js";
+import EmbedBuilder from "../structures/EmbedBuilder.js";
+import ReplyDb, { ReplyData } from "../models/ReplyDb.js";
 import { Document, Model, Types } from "mongoose";
 
 enum SubCommand {

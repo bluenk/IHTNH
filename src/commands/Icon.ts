@@ -6,8 +6,8 @@ import {
     Message,
     User
 } from "discord.js";
-import { Client } from "../structures/Client";
-import { Command } from "../structures/Command"
+import { Client } from "../structures/Client.js";
+import { Command } from "../structures/Command.js"
 
 export default class Icon extends Command {
     public constructor(public client: Client) {

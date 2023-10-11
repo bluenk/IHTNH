@@ -1,5 +1,5 @@
 import { Connection, Model, Schema } from 'mongoose';
-import { Client } from '../structures/Client';
+import { Client } from '../structures/Client.js';
 
 export interface ReplyData {
     keyword: string[];

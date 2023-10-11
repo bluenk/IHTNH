@@ -1,5 +1,5 @@
 import { ClientEvents } from "discord.js";
-import { Client } from "./Client";
+import { Client } from "./Client.js";
 
 // export interface EventType {
 //     readonly name: keyof ClientEvents;

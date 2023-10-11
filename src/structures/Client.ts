@@ -1,10 +1,10 @@
 import { Client as DiscordClient, ClientOptions } from "discord.js";
-import { log } from "../utils/logger";
-import EventLoader from "../utils/EventLoader";
-import CommandLoader from "../utils/CommandLoader";
-import ConnectDb from "../utils/ConnectDb";
-import App from "../api/App";
-import HandlerLoader from "../utils/HandlerLoader";
+import { log } from "../utils/logger.js";
+import EventLoader from "../utils/EventLoader.js";
+import CommandLoader from "../utils/CommandLoader.js";
+import ConnectDb from "../utils/ConnectDb.js";
+import App from "../api/App.js";
+import HandlerLoader from "../utils/HandlerLoader.js";
 
 export interface ReplyKeywords {
     keywords: string[];

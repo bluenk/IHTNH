@@ -1,6 +1,6 @@
 import { ApplicationCommandOptionType, ApplicationCommandType, ChatInputCommandInteraction, PermissionsBitField } from "discord.js";
-import { Client } from "../structures/Client";
-import { Command } from "../structures/Command";
+import { Client } from "../structures/Client.js";
+import { Command } from "../structures/Command.js";
 
 export default class Say extends Command {
     public constructor(public client: Client) {

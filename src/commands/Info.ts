@@ -1,7 +1,7 @@
 import { ApplicationCommandType, CommandInteraction, Message } from "discord.js";
-import { Client } from "../structures/Client";
-import { Command } from "../structures/Command";
-import EmbedBuilder from "../structures/EmbedBuilder";
+import { Client } from "../structures/Client.js";
+import { Command } from "../structures/Command.js";
+import EmbedBuilder from "../structures/EmbedBuilder.js";
 
 export default class Info extends Command {
     public constructor(public client: Client) {

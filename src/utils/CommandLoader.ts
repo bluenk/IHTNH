@@ -1,8 +1,8 @@
 import { ApplicationCommandData, Collection } from "discord.js";
-import { log } from "./logger";
-import { Client } from "../structures/Client";
-import { Command } from "../structures/Command";
-import Loader from "../structures/Loader";
+import { log } from "./logger.js";
+import { Client } from "../structures/Client.js";
+import { Command } from "../structures/Command.js";
+import Loader from "../structures/Loader.js";
 
 export default class CommandLoader extends Loader {
     public collection: Collection<string, Command>; 

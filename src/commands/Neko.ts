@@ -1,9 +1,9 @@
 import { ApplicationCommandType, CommandInteraction, Message } from "discord.js";
-import { Command } from "../structures/Command";
 import fetch from "node-fetch";
-import { log } from "../utils/logger";
-import { Client } from "../structures/Client";
-import EmbedBuilder from "../structures/EmbedBuilder";
+import { Command } from "../structures/Command.js";
+import { log } from "../utils/logger.js";
+import { Client } from "../structures/Client.js";
+import EmbedBuilder from "../structures/EmbedBuilder.js";
 
 export default class Neko extends Command {
     public constructor(public client: Client) {

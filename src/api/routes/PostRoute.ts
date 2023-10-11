@@ -1,12 +1,13 @@
-import { Client } from "../../structures/Client";
-import Route from "../../structures/Route";
-import ChangeLogController from "../controllers/ChangeLogController";
+import { Client } from "../../structures/Client.js";
+import Route from "../../structures/Route.js";
+import ChangeLogController from "../controllers/ChangeLogController.js";
 
 export default class PostRoute extends Route {
-    private changeLog = new ChangeLogController(this.client);
+    private changeLog: ChangeLogController;
 
     public constructor(public client: Client) {
         super();
+        this.changeLog = new ChangeLogController(this.client);
         this.setRoutes();
     }
 

@@ -1,5 +1,5 @@
-import { Client } from "../../structures/Client";
-import Route from "../../structures/Route";
+import { Client } from "../../structures/Client.js";
+import Route from "../../structures/Route.js";
 
 export default class GetRoute extends Route{
 

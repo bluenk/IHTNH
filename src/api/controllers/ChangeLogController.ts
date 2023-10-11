@@ -1,8 +1,8 @@
 import { NextFunction, Request, Response } from "express";
-import { Client } from "../../structures/Client";
-import Controller from "../../structures/Controller";
-import EmbedBuilder from "../../structures/EmbedBuilder";
-import { log } from "../../utils/logger";
+import { Client } from "../../structures/Client.js";
+import Controller from "../../structures/Controller.js";
+import EmbedBuilder from "../../structures/EmbedBuilder.js";
+import { log } from "../../utils/logger.js";
 
 export default class ChangeLogController extends Controller {
     public constructor(public client: Client) { super() }

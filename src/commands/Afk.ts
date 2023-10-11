@@ -1,5 +1,5 @@
-import { Command } from '../structures/Command';
-import { log } from '../utils/logger';
+import { Command } from '../structures/Command.js';
+import { log } from '../utils/logger.js';
 import { ApplicationCommandType, CommandInteraction, DiscordAPIError, GuildMember, Message } from 'discord.js';
 
 export default class Afk extends Command {

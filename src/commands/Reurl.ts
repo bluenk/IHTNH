@@ -10,10 +10,10 @@ import {
     ThreadChannel
 } from "discord.js";
 import fetch from "node-fetch";
-import { Command } from "../structures/Command";
-import { log } from "../utils/logger";
-import { Client } from "../structures/Client";
-import EmbedBuilder from "../structures/EmbedBuilder";
+import { Command } from "../structures/Command.js";
+import { log } from "../utils/logger.js";
+import { Client } from "../structures/Client.js";
+import EmbedBuilder from "../structures/EmbedBuilder.js";
 
 export default class Reurl extends Command {
     public constructor(public client: Client) {
