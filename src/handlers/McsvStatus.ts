@@ -1,35 +1,26 @@
-import { Collection, Message, ThreadChannel } from "discord.js";
+import { Collection, Message, MessageType, ThreadChannel } from "discord.js";
 import { Client } from "../structures/Client.js";
 import { Handler } from "../structures/Handler.js";
 import EmbedBuilder from "../structures/EmbedBuilder.js";
-import * as util from "minecraft-server-util";
-import { FullQueryResponse } from "minecraft-server-util";
-import { log } from "../utils/logger.js";
+import { loggerInit } from "../utils/logger.js";
 import _ from "lodash";
-import dns from "dns";
-import { promisify } from "util";
-import { exec } from "child_process";
-const dnsResolve = promisify(dns.resolve);
-const execSync = promisify(exec);
+import fetch from "node-fetch";
+import { EventEmitter } from 'node:events';
+const log = loggerInit('McsvStatus');
 
-const fetchDelay = 1; //min
-let downDetected = 0;
+const pollingDelay = 5; //min
 
 enum Status { UP = 'up', DOWN = 'down' }
 enum ThreadTitle {
-    UP = '🟢伺服器狀態-線上',
-    DOWN = '🔴伺服器狀態-停止'
+    UP = '🟢伺服器-線上',
+    DOWN = '🔴伺服器-停止'
 }
 
 export default class McsvStatus extends Handler {
     private curStatus: Status = Status.DOWN;
-    private preStatus: Status = Status.DOWN;
-    private curDetail: FullQueryResponse | undefined;
-    private perDetail: FullQueryResponse | undefined;
     private threadCh: ThreadChannel | undefined;
     private detailMsg: Message | null = null;
     private lastSeen = new Collection<string, number>();
-
 
     public constructor(public client: Client) {
         super(client, {
@@ -48,92 +39,39 @@ export default class McsvStatus extends Handler {
         try {
             this.threadCh = await this.client.channels.fetch(process.env.MC_SERVER_STATUS_THREAD!) as ThreadChannel;
         } catch(err) {
-            return log(err , this.options.info.name);
+            return log(err);
         }
 
-        this.checkStatus();
-    }
-    
-    private async checkStatus() {
-        const host = process.env.MC_SERVER_HOST!;
-        const reverseProxyHost = process.env.MC_REVERSE_PROXY_HOST!;
-        const options = {
-            timeout: 1000 * 15,
-            enableSRV: false
-        };
-        
-        try {
-            const status = await util.status(host, 25565, options);
-            const query = await util.queryFull(host, 25565, options).catch(console.error) ?? undefined;
+        const server = new Server(process.env.MC_SERVER_HOST!);
+        server.listen();
+        log(`Start listening to ${process.env.MC_SERVER_HOST!}`);
 
-            this.handleStatus(Status.UP, query);
-        } catch(err: any) {
-            this.handleStatus(Status.DOWN);
+        // Reuse last detail msg if bot restarted
+        if (this.threadCh?.name.startsWith(ThreadTitle.UP.toString())) {
+            log('Reusing last detail message.');
+            const msgs = await this.threadCh.messages.fetch();
 
-            if (err.message === 'Socket closed unexpectedly while waiting for data') return;
-            if (err.message === 'Timed out while retrieving server status') return;
-            if (String.prototype.includes.call(err.message, 'EHOSTUNREACH')) return;
-            log(err, this.options.info.name + '-checkStatus');
-        }
-    }
-    
-    private async handleStatus(newStatus: Status, detail?: FullQueryResponse) {
-        setTimeout(() => this.checkStatus(), 1000 * 60 * fetchDelay);
-
-        this.preStatus = this.curStatus;
-        this.curStatus = newStatus;
-        this.perDetail = this.curDetail;
-        this.curDetail = detail;
-
-        if (this.threadCh?.archived) {
-            await this.threadCh.setArchived(false);
+            this.detailMsg = 
+                msgs
+                    .filter(m => m.author.id === this.client.user?.id && m.type === MessageType.Default)
+                    .sort((a, b) => b.createdTimestamp - a.createdTimestamp)
+                    .first()
+                ?? null;
         }
 
-        // Edit thread title when server status changes.
-        let statusChanged = false;
-        if (this.preStatus !== this.curStatus) {
-            statusChanged = true;
-        }
+        server.on('online', isOnline => {
+            log('server online?: ' + isOnline);
+      
+            if (!isOnline) this.threadCh?.edit({ name: ThreadTitle.DOWN });
+            if (this.threadCh?.name === ThreadTitle.DOWN.toString() && isOnline) this.threadCh?.edit({ name: ThreadTitle.UP });
 
-        // When server down.
-        if (this.curStatus === Status.DOWN && downDetected >= 5) {
-            if (!this.detailMsg) return;
-            log(`Server is ${this.curStatus} now.`, this.options.info.name);
+            this.curStatus = isOnline ? Status.UP : Status.DOWN;
+        });
 
-            this.threadCh?.edit({ name: ThreadTitle.DOWN });
-            this.detailMsg?.delete();
-            this.detailMsg = null;
-            this.lastSeen.clear();
-        }
+        server.on('playerListChanged', async (players: MCStatusData["players"]) => {
+            log('player list chnaged: ' + JSON.stringify(players, null, 2));
 
-        // When server up.
-        if (this.curStatus === Status.UP && statusChanged) {
-            log(`Server is ${this.curStatus} now.`, this.options.info.name);
-            await this.threadCh?.edit({ name: ThreadTitle.UP });
-        }
-
-        if (this.curStatus === Status.UP) {
-            downDetected = 0;
-        } else {
-            downDetected++;
-        }
-
-        // Update embed when player list changes.
-        const prePlayers = this.perDetail?.players.list.sort((a, b) => a.localeCompare(b));
-        const curPlayers = this.curDetail?.players.list.sort((a, b) => a.localeCompare(b));
-        if (!_.isEqual(prePlayers, curPlayers) || statusChanged) {
-            const logout = this.perDetail?.players.list.filter(p => !this.curDetail?.players.list.includes(p)) ?? [];
-            const login = this.curDetail?.players.list.filter(p => !this.perDetail?.players.list.includes(p)) ?? [];
-            // console.log({ logout, login });
-
-            for (const player of login) {
-                if (this.lastSeen.has(player)) this.lastSeen.delete(player);
-            }
-            for (const player of logout) {
-                this.lastSeen.set(player, Math.floor(Date.now() / 1000));
-            }
-
-            const embed = this.makeDetailEmbed(detail);
+            const embed = this.makeDetailEmbed(players);
 
             if (this.detailMsg) {
                 this.detailMsg.edit({ embeds: [embed] });
@@ -141,32 +79,33 @@ export default class McsvStatus extends Handler {
                 if (this.curStatus === Status.DOWN) return;
                 this.detailMsg = await this.threadCh!.send({ embeds: [embed] });
             }
-        }
+
+            this.threadCh?.edit({ name: `${ThreadTitle.UP} ${players.online}/${players.max}` });
+        });
     }
 
-    private makeDetailEmbed(detail?: FullQueryResponse) {
+    private makeDetailEmbed(players: MCStatusData["players"]) {
         const groupN = 3;
 
         return new EmbedBuilder({
             author: { name: '📄 伺服器資訊' },
             fields: [
-                { name: '線上人數\u2800\u2800', value: `${detail?.players.online} / ${detail?.players.max}`, inline: true },
-                // { name: '延遲', value:  `${latencyIndicator} ${latency}ms`, inline: true },
+                { name: '線上人數\u200b\u200b', value: `${players.online} / ${players.max}`, inline: true },
                 { name: '\u200b', value: '\u200b', inline: true },
                 {
                     name: '在線玩家',
-                    value: detail?.players.list
-                        .sort((a, b) => a.localeCompare(b, 'zh-TW'))
-                        .map(p => `\`${p}\``)
-                        .reduce((p: string[][], c, i) => {
-                            if (i % groupN === 0) {
-                                p.push([c]);
-                            } else {
-                                p[p.length - 1].push(c);
-                            }
-                            return p;
-                        }, [])
-                        .map(g => g.join(', '))
+                    value: players.list
+                        .sort((a, b) => a.name_clean.localeCompare(b.name_clean, 'zh-TW'))
+                        .map(p => `\`${p.name_clean}\``)
+                        // .reduce((p: string[][], c, i) => {
+                        //     if (i % groupN === 0) {
+                        //         p.push([c]);
+                        //     } else {
+                        //         p[p.length - 1].push(c);
+                        //     }
+                        //     return p;
+                        // }, []) 
+                        // .map(g => g.join(', '))
                         .join('\n')
                         .slice(0, 1023)
                         || '無',
@@ -185,4 +124,79 @@ export default class McsvStatus extends Handler {
             ]
         });
     }
+}
+
+class Server extends EventEmitter {
+    public online: boolean = false;
+    public players: string[] = [];
+    
+    public constructor(private readonly host: string) {
+        super();
+        this.query().catch(log);
+    }
+
+    async query() {
+        const res = await fetch(`https://api.mcstatus.io/v2/status/java/${this.host}`);
+        return res.json();
+    }
+
+    async listen() {
+        const loop = setTimeout(async () => {
+            const data: MCStatusData = await this.query();
+            const nwePlayers = data.players.list.map(p => p.name_clean).sort();
+
+            if (this.online !== data.online) this.emit('online', data.online);
+            if (
+                this.players.length !== nwePlayers.length ||
+                !this.players.every((v, i) => v === nwePlayers[i])
+                ) {
+                    this.emit('playerListChanged', data.players);
+                }
+            
+            this.online = data.online;
+            this.players = nwePlayers;
+
+            loop.refresh();
+        }, 1000 * 60 * pollingDelay);
+    }
+}
+
+interface MCStatusData {
+    online: boolean,
+    host: string,
+    port: number,
+    eula_blocked: boolean,
+    retrieved_at: number,
+    expires_at: number,
+    version: {
+        name_raw: string,
+        name_clean: string,
+        name_html: string,
+        protocal: number
+    },
+    players: {
+        online: number,
+        max: number,
+        list: {
+            uuid: string,
+            name_raw: string,
+            name_clean: string,
+            name_html: string,
+        }[],
+    },
+    motd: {
+        raw: string,
+        clean: string,
+        html: string
+    },
+    icon: string,
+    mods: {
+        name: string,
+        version: string
+    }[],
+    software: string,
+    plugins: {
+        name: string,
+        version: string
+    }[]
 }
