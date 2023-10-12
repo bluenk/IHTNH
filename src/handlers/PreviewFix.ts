@@ -107,8 +107,13 @@ export default class PreviewFix extends Handler {
                 }
             });
         
-        // Check if original message has genarated perview, if yes then remove origin message's preview
-        setTimeout(async () => msg.embeds.length > 0 ? msg.removeAttachments() : null, embedCheckDelay * 1000)
+        // Check if original message has genarated perview, if yes then remove replyed message
+        setTimeout(async () => {
+            if (msg.embeds.length > 0) {
+                this.queueRemove(replyMsg.id);
+                replyMsg.delete();
+            }
+        }, embedCheckDelay * 1000)
     }
 
     public async deleteRepaired(msg: Message) {
@@ -162,7 +167,7 @@ export default class PreviewFix extends Handler {
         const data = await this.twitterCrawler.crawl(twitterUrls[0]);
 
         // msg.reply(data.mediaUrls.map(u => u.href).join('\n'));
-        // console.log({tweetIds}, JSON.stringify(data, null, 2));
+        console.log(data);
         return this.makeTweetEmbeds(data);
     }
 
