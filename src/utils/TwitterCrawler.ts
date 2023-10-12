@@ -111,8 +111,6 @@ export default class TwitterCrawler {
                             )
                         })
             );
-
-        if (!mediaUrls.length) throw Error('Faild to get media URLs from tweets.');
         
         const mediaType = 
             componentTypes.includes('videoPlayer')
@@ -121,6 +119,9 @@ export default class TwitterCrawler {
                     : 'VEDIO_GIF'
                 : 'IMAGE';
 
+        if (!mediaUrls.length) throw Error('Faild to get media URLs from tweets.');
+        if (!m3u8Urls && mediaType === 'VEDIO') throw Error('Faild to get m3u8 URLs from tweets.');
+        
         return {
             url: new URL(tweetUrl),
             mediaType,
