@@ -70,6 +70,9 @@ export default class TwitterCrawler {
                 els => els.map(el => el.innerText)
             );
 
+        // If views count not available, add placeholder
+        if (pm.length < 5) pm.unshift('N/A');
+
         // const imageComponent = this.page.$('article[tabindex="-1"] div[data-testid=tweetPhoto]');
         // const videoComponent = this.page.$('article[tabindex="-1"] div[data-testid=videoComponent]');
 
