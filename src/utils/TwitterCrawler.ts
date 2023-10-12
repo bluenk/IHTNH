@@ -95,7 +95,7 @@ export default class TwitterCrawler {
         
         
         // Getting media URLs
-        const mediaEls = await this.page.$$('article[tabindex="-1"] div > img[alt="圖片"], article[tabindex="-1"] div > video');
+        const mediaEls = await this.page.$$('article[tabindex="-1"] img[draggable="true"]:not([alt=""]), article[tabindex="-1"] div > video');
         const mediaUrls =
             await Promise.all(
                     mediaEls
@@ -109,7 +109,7 @@ export default class TwitterCrawler {
                         })
             );
 
-        if (!mediaUrls) throw Error('Faild to get matadata from tweets.');
+        if (!mediaUrls.length) throw Error('Faild to get media URLs from tweets.');
         
         const mediaType = 
             componentTypes.includes('videoPlayer')
