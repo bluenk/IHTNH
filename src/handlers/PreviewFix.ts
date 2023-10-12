@@ -167,7 +167,7 @@ export default class PreviewFix extends Handler {
         const data = await this.twitterCrawler.crawl(twitterUrls[0]);
 
         // msg.reply(data.mediaUrls.map(u => u.href).join('\n'));
-        console.log(data);
+        // console.log(data);
         return this.makeTweetEmbeds(data);
     }
 
@@ -192,8 +192,8 @@ export default class PreviewFix extends Handler {
                 },
                 description,
                 fields: [
-                    { name: '喜歡', value: publicMetrics.likes, inline: true },
-                    { name: '轉推', value: publicMetrics.retweets, inline: true }
+                    { name: '', value: `<:retweet:1161941192418803732>  ${publicMetrics.retweets}`, inline: true },
+                    { name: '', value: `<:like:1161943557448413194>  ${publicMetrics.likes}`, inline: true },
                 ],
                 image: mediaType === 'IMAGE' ? { url: mediaUrls[0].href } : undefined,
                 footer: {
