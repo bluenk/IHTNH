@@ -1,6 +1,6 @@
 {
   "name": "ihtnh",
-  "version": "0.20.3",
+  "version": "0.20.4",
   "description": "discord bot",
   "main": "bot.js",
   "type": "module",

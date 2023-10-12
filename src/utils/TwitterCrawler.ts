@@ -70,6 +70,9 @@ export default class TwitterCrawler {
                 els => els.map(el => el.innerText)
             );
 
+        // If views count not available, add placeholder
+        if (pm.length < 5) pm.unshift('N/A');
+
         // const imageComponent = this.page.$('article[tabindex="-1"] div[data-testid=tweetPhoto]');
         // const videoComponent = this.page.$('article[tabindex="-1"] div[data-testid=videoComponent]');
 
@@ -95,7 +98,7 @@ export default class TwitterCrawler {
         
         
         // Getting media URLs
-        const mediaEls = await this.page.$$('article[tabindex="-1"] div > img[alt="圖片"], article[tabindex="-1"] div > video');
+        const mediaEls = await this.page.$$('article[tabindex="-1"] img[draggable="true"]:not([alt=""]), article[tabindex="-1"] div > video');
         const mediaUrls =
             await Promise.all(
                     mediaEls
@@ -108,8 +111,6 @@ export default class TwitterCrawler {
                             )
                         })
             );
-
-        if (!mediaUrls) throw Error('Faild to get matadata from tweets.');
         
         const mediaType = 
             componentTypes.includes('videoPlayer')
@@ -118,6 +119,9 @@ export default class TwitterCrawler {
                     : 'VEDIO_GIF'
                 : 'IMAGE';
 
+        if (!mediaUrls.length) throw Error('Faild to get media URLs from tweets.');
+        if (!m3u8Urls && mediaType === 'VEDIO') throw Error('Faild to get m3u8 URLs from tweets.');
+        
         return {
             url: new URL(tweetUrl),
             mediaType,
