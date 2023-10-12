@@ -8,7 +8,7 @@ import { log } from '../utils/logger.js';
 export default class App {
     private readonly app;
     private readonly port = 5000;
-    private readonly host = 'localhost';
+    private readonly host = '0.0.0.0';
     
     public constructor(public client: Client) {
         this.app = express();
