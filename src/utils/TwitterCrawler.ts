@@ -87,7 +87,7 @@ export default class TwitterCrawler {
         
         // console.log({ componentTypes, contentComponentTypes });
 
-        const authorName = await this.page.$eval('article[tabindex="-1"] div[data-testid=User-Name] span > span', el => el.innerText);
+        const authorName = (await (await (await this.page.$('meta[property="og:title"]'))!.getProperty('content')).jsonValue()).substring(5);
         const authorId = await this.page.$eval('article[tabindex="-1"] div[data-testid=User-Name] a > div > span', el => el.innerText);
         const authorPfP = await (await (await this.page.$('article[tabindex="-1"] div[data-testid=Tweet-User-Avatar] img'))!.getProperty('src')).jsonValue();
 
