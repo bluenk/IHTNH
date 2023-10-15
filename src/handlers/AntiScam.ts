@@ -36,7 +36,6 @@ export default class AntiScam extends Handler {
             log('Checking url => ' + url, this.options.info.name);
             const domainWithPath = url.split('://')[1];
             const domain = domainWithPath.split('/')[0];
-            console.log({ url, domainWithPath, domain });
 
             if (
                 this.domains.some((scamDomain, i) => {
