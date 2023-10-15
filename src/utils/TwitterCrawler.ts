@@ -44,13 +44,14 @@ export default class TwitterCrawler {
         const m3u8Urls: URL[] = [];
         this.page.on('request', e => {
             const reqUrl = new URL(e.url());
+            // console.log(reqUrl.href);
 
             if (!(reqUrl.href.includes('pbs.twimg.com') || reqUrl.href.includes('video.twimg'))) return;
 
             if (
-                (reqUrl.href.includes('twimg.com/ext_tw_video/') ||
-                reqUrl.href.includes('twimg.com/media/') ||
-                reqUrl.href.includes('twimg.com/tweet_video/')) &&
+                // (reqUrl.href.includes('twimg.com/ext_tw_video/') ||
+                // reqUrl.href.includes('twimg.com/media/') ||
+                // reqUrl.href.includes('twimg.com/tweet_video/')) &&
                 reqUrl.href.includes('m3u8')
                 ) {
                     m3u8Urls.push(reqUrl);
@@ -87,7 +88,7 @@ export default class TwitterCrawler {
         
         // console.log({ componentTypes, contentComponentTypes });
 
-        const authorName = await this.page.$eval('article[tabindex="-1"] div[data-testid=User-Name] span > span', el => el.innerText);
+        const authorName = (await (await (await this.page.$('meta[property="og:title"]'))!.getProperty('content')).jsonValue()).substring(5);
         const authorId = await this.page.$eval('article[tabindex="-1"] div[data-testid=User-Name] a > div > span', el => el.innerText);
         const authorPfP = await (await (await this.page.$('article[tabindex="-1"] div[data-testid=Tweet-User-Avatar] img'))!.getProperty('src')).jsonValue();
 
@@ -120,7 +121,7 @@ export default class TwitterCrawler {
                 : 'IMAGE';
 
         if (!mediaUrls.length) throw Error('Faild to get media URLs from tweets.');
-        if (!m3u8Urls && mediaType === 'VEDIO') throw Error('Faild to get m3u8 URLs from tweets.');
+        if (!m3u8Urls.length && mediaType === 'VEDIO') throw Error('Faild to get m3u8 URLs from tweets.');
         
         return {
             url: new URL(tweetUrl),
