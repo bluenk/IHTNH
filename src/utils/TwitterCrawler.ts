@@ -87,16 +87,16 @@ export default class TwitterCrawler {
         const contentComponentTypes = componentTypes.slice(contentStart, contentEnd);
         
         // console.log({ componentTypes, contentComponentTypes });
+        await this.page.waitForSelector('article[tabindex="-1"] div[data-testid=Tweet-User-Avatar] img');
 
-        const authorName = (await (await (await this.page.$('meta[property="og:title"]'))!.getProperty('content')).jsonValue()).substring(5);
+        const authorName = (await (await (await this.page.$('meta[property="og:title"]'))!.getProperty('content')).jsonValue()).substring(5).split('：「')[0];
         const authorId = await this.page.$eval('article[tabindex="-1"] div[data-testid=User-Name] a > div > span', el => el.innerText);
         const authorPfP = await (await (await this.page.$('article[tabindex="-1"] div[data-testid=Tweet-User-Avatar] img'))!.getProperty('src')).jsonValue();
 
-        const tweetUrl = await (await (await this.page.$('meta[property="og:url"]'))!.getProperty('content')).jsonValue();
+        const tweetUrl = await (await (await this.page.$('link[rel="canonical"]'))!.getProperty('href')).jsonValue();
         const tweetTimestamp = await (await (await this.page.$('article[tabindex="-1"] time'))!.getProperty('dateTime')).jsonValue();
         
-        const description = await (await (await this.page.$('meta[property="og:description"]'))!.getProperty('content')).jsonValue();
-        
+        const description = await this.page.$eval('article[tabindex="-1"] div[data-testid="tweetText"] span', el => el.innerText);
         
         // Getting media URLs
         const mediaEls = await this.page.$$('article[tabindex="-1"] img[draggable="true"]:not([alt=""]), article[tabindex="-1"] div > video');
