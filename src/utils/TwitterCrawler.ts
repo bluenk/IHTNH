@@ -20,7 +20,7 @@ export default class TwitterCrawler {
     }
 
     public async init() {
-        const browser = await puppeteer.launch({ headless: 'new', executablePath: '/usr/bin/google-chrome-stable' });
+        const browser = await puppeteer.launch({ headless: 'new', executablePath: '/usr/bin/google-chrome-stable', args: ['--lang=zh-TW'] });
         const page = await browser.newPage();
 
         await page.setCookie(...this.loginCookies);
@@ -99,7 +99,7 @@ export default class TwitterCrawler {
         const description = await this.page.$eval('article[tabindex="-1"] div[data-testid="tweetText"] span', el => el.innerText).catch(err => '');
         
         // Getting media URLs
-        const mediaEls = await this.page.$$('article[tabindex="-1"] img[draggable="true"]:not([alt=""]), article[tabindex="-1"] div > video, article[tabindex="-1"] div[data-testid="card.layoutLarge.media"] img');
+        const mediaEls = await this.page.$$('article[tabindex="-1"] img[draggable="true"]:not([alt=""]):not([alt="方形個人資料圖片"]), article[tabindex="-1"] div > video, article[tabindex="-1"] div[data-testid="card.layoutLarge.media"] img');
         const mediaUrls =
             (await Promise.all(
                     mediaEls
