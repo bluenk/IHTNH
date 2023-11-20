@@ -96,7 +96,7 @@ export default class TwitterCrawler {
         const tweetUrl = await (await (await this.page.$('link[rel="canonical"]'))!.getProperty('href')).jsonValue();
         const tweetTimestamp = await (await (await this.page.$('article[tabindex="-1"] time'))!.getProperty('dateTime')).jsonValue();
         
-        const description = await this.page.$eval('article[tabindex="-1"] div[data-testid="tweetText"] span', el => el.innerText);
+        const description = await this.page.$eval('article[tabindex="-1"] div[data-testid="tweetText"] span', el => el.innerText).catch(err => '');
         
         // Getting media URLs
         const mediaEls = await this.page.$$('article[tabindex="-1"] img[draggable="true"]:not([alt=""]), article[tabindex="-1"] div > video');
