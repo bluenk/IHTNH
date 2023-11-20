@@ -99,7 +99,7 @@ export default class TwitterCrawler {
         const description = await this.page.$eval('article[tabindex="-1"] div[data-testid="tweetText"] span', el => el.innerText).catch(err => '');
         
         // Getting media URLs
-        const mediaEls = await this.page.$$('article[tabindex="-1"] img[draggable="true"]:not([alt=""]), article[tabindex="-1"] div > video');
+        const mediaEls = await this.page.$$('article[tabindex="-1"] img[draggable="true"]:not([alt=""]), article[tabindex="-1"] div > video, article[tabindex="-1"] div[data-testid="card.layoutLarge.media"] img');
         const mediaUrls =
             await Promise.all(
                     mediaEls
@@ -112,16 +112,18 @@ export default class TwitterCrawler {
                             )
                         })
             );
-        
+
         const mediaType = 
             componentTypes.includes('videoPlayer')
                 ? mediaUrls[0].protocol === 'blob:'
                     ? 'VEDIO'
                     : 'VEDIO_GIF'
-                : 'IMAGE';
+                : componentTypes.some(s => s === 'tweetPhoto' || s === 'card.layoutLarge.media') 
+                    ? 'IMAGE'
+                    : null;
 
-        if (!mediaUrls.length) throw Error('Faild to get media URLs from tweets.');
         if (!m3u8Urls.length && mediaType === 'VEDIO') throw Error('Faild to get m3u8 URLs from tweets.');
+        if (!mediaUrls.length && mediaType === 'IMAGE') log(Error('Faild to get media URLs from tweets.'));
         
         return {
             url: new URL(tweetUrl),
@@ -183,6 +185,6 @@ export interface ITweetData {
         bookmarks: string
     },
     description: string,
-    mediaType: 'IMAGE' | 'VEDIO' | 'VEDIO_GIF',
+    mediaType: 'IMAGE' | 'VEDIO' | 'VEDIO_GIF' | null,
     timestamp: string
 }
