@@ -8,7 +8,7 @@
     "@discordjs/opus": "^0.9.0",
     "@discordjs/voice": "^0.9.0",
     "circle-to-polygon": "^2.0.2",
-    "discord.js": "^14.13.0",
+    "discord.js": "^14.14.1",
     "dotenv": "^15.0.0",
     "express": "^4.17.1",
     "express-xml-bodyparser": "^0.3.0",
@@ -31,7 +31,7 @@
     "ytdl-core": "^4.11.2"
   },
   "engines": {
-    "node": ">=16.9.0 <17"
+    "node": "^20.9.0"
   },
   "scripts": {
     "start": "cross-env NODE_ENV=pro node ./dist/bot.js",
