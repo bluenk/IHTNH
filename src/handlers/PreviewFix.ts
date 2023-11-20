@@ -173,16 +173,17 @@ export default class PreviewFix extends Handler {
 
     private async makeTweetEmbeds(tweetsData: ITweetData): Promise<MessageCreateOptions> {
         let files: AttachmentBuilder[] = [];
-        const { author, mediaUrls, url, publicMetrics, mediaType, timestamp, description } = tweetsData; 
-        
-        if (mediaType === 'VEDIO_GIF') {
-            files.push(...mediaUrls.map(url =>  new AttachmentBuilder(url.href)));
-        }
-        if (mediaType === 'VEDIO') {
-            files.push(...mediaUrls.map(url =>  new AttachmentBuilder(ffmpegStreamer(url.href), { name: 'preview.mp4' })));
-        }
-        
+        const { author, mediaUrls, url, publicMetrics, timestamp, description } = tweetsData; 
 
+        tweetsData.mediaUrls.forEach(({ url, mediaType }) => {
+             if (mediaType === 'VIDEO_GIF') {
+                files.push(new AttachmentBuilder(url.href));
+            }
+            if (mediaType === 'VIDEO') {
+                files.push(new AttachmentBuilder(ffmpegStreamer(url.href), { name: 'preview.mp4' }));
+            }
+        });
+       
         const embeds = [
             new EmbedBuilder({
                 url: url.href,
@@ -195,7 +196,7 @@ export default class PreviewFix extends Handler {
                     { name: '', value: `<:retweet:1161941192418803732>  ${publicMetrics.retweets}`, inline: true },
                     { name: '', value: `<:like:1161943557448413194>  ${publicMetrics.likes}`, inline: true },
                 ],
-                image: mediaType === 'IMAGE' ? { url: mediaUrls[0].href } : undefined,
+                image: mediaUrls[0]?.mediaType === 'IMAGE' ? { url: mediaUrls[0].url.href } : undefined,
                 footer: {
                     text: `推文預覽  •  ${publicMetrics.views} 次查看`,
                     icon_url: 'https://abs.twimg.com/icons/apple-touch-icon-192x192.png'
@@ -207,12 +208,13 @@ export default class PreviewFix extends Handler {
         // Adding additional images
         if (mediaUrls.length > 1) {
             mediaUrls
+                .filter(m => m.mediaType === "IMAGE")
                 .slice(1)
                 .forEach(mUrl => {
                     embeds.push(
                         new EmbedBuilder({
                             url: url.href,
-                            image: { url: mUrl.href }
+                            image: { url: mUrl.url.href }
                         })
                     );
                 });

@@ -20,7 +20,7 @@ export default class TwitterCrawler {
     }
 
     public async init() {
-        const browser = await puppeteer.launch({ headless: 'new', executablePath: '/usr/bin/google-chrome-stable' });
+        const browser = await puppeteer.launch({ headless: 'new', executablePath: '/usr/bin/google-chrome-stable', args: ['--lang=zh-TW'] });
         const page = await browser.newPage();
 
         await page.setCookie(...this.loginCookies);
@@ -96,41 +96,52 @@ export default class TwitterCrawler {
         const tweetUrl = await (await (await this.page.$('link[rel="canonical"]'))!.getProperty('href')).jsonValue();
         const tweetTimestamp = await (await (await this.page.$('article[tabindex="-1"] time'))!.getProperty('dateTime')).jsonValue();
         
-        const description = await this.page.$eval('article[tabindex="-1"] div[data-testid="tweetText"] span', el => el.innerText);
+        const description = await this.page.$eval('article[tabindex="-1"] div[data-testid="tweetText"] span', el => el.innerText).catch(err => '');
         
         // Getting media URLs
-        const mediaEls = await this.page.$$('article[tabindex="-1"] img[draggable="true"]:not([alt=""]), article[tabindex="-1"] div > video');
+        const mediaEls = await this.page.$$('article[tabindex="-1"] img[draggable="true"]:not([alt=""]):not([alt="方形個人資料圖片"]), article[tabindex="-1"] div > video, article[tabindex="-1"] div[data-testid="card.layoutLarge.media"] img');
         const mediaUrls =
-            await Promise.all(
+            (await Promise.all(
                     mediaEls
                         .map(async el => {
-                            return new URL(
-                                await (
-                                    await el.getProperty('src')
-                                )
-                                .jsonValue()
-                            )
+                            const url = new URL(await (await el.getProperty('src')).jsonValue())
+                            return  {
+                                url,
+                                mediaType: url.protocol === 'blob:'
+                                    ? 'VIDEO'
+                                    : url.href.endsWith('mp4')
+                                        ? 'VIDEO_GIF'
+                                        : 'IMAGE'
+                            } 
                         })
-            );
-        
-        const mediaType = 
-            componentTypes.includes('videoPlayer')
-                ? mediaUrls[0].protocol === 'blob:'
-                    ? 'VEDIO'
-                    : 'VEDIO_GIF'
-                : 'IMAGE';
+                        
+            ))
+            .map(m => {
+                return m.mediaType === 'VIDEO'
+                    ?  { url: m3u8Urls.shift(), mediaType: m.mediaType }
+                    : m;
+            }) as ITweetData['mediaUrls'];
 
-        if (!mediaUrls.length) throw Error('Faild to get media URLs from tweets.');
-        if (!m3u8Urls.length && mediaType === 'VEDIO') throw Error('Faild to get m3u8 URLs from tweets.');
+        // const mediaType = 
+        //     componentTypes.includes('videoPlayer')
+        //         ? mediaUrls[0].protocol === 'blob:'
+        //             ? 'VIDEO'
+        //             : 'VIDEO_GIF'
+        //         : componentTypes.some(s => s === 'tweetPhoto' || s === 'card.layoutLarge.media') 
+        //             ? 'IMAGE'
+        //             : null;
+
+        // if (!m3u8Urls.length && mediaType === 'VIDEO') throw Error('Faild to get m3u8 URLs from tweets.');
+        if (
+            !mediaUrls.length 
+            && componentTypes.includes('tweetPhoto')
+            && componentTypes.includes('videoPlayer')
+            ) log(Error('Faild to get media URLs from tweets.'));
         
         return {
             url: new URL(tweetUrl),
-            mediaType,
             author: { id: authorId, name: authorName, pfp: new URL(authorPfP) },
-            mediaUrls:
-                mediaType === 'VEDIO'
-                    ? [m3u8Urls[0]]
-                    : mediaUrls,
+            mediaUrls,
             description,
             publicMetrics: { views: pm[0], replys: pm[1], retweets: pm[2], likes: pm[3], bookmarks: pm[4] },
             timestamp: tweetTimestamp
@@ -169,7 +180,7 @@ export default class TwitterCrawler {
 
 export interface ITweetData {
     url: URL,
-    mediaUrls: URL[],
+    mediaUrls: { url: URL, mediaType: 'IMAGE' | 'VIDEO' | 'VIDEO_GIF' }[],
     author: {
         id: string,
         name: string,
@@ -183,6 +194,5 @@ export interface ITweetData {
         bookmarks: string
     },
     description: string,
-    mediaType: 'IMAGE' | 'VEDIO' | 'VEDIO_GIF',
     timestamp: string
 }
