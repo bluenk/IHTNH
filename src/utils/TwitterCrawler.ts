@@ -129,7 +129,7 @@ export default class TwitterCrawler {
             author: { id: authorId, name: authorName, pfp: new URL(authorPfP) },
             mediaUrls:
                 mediaType === 'VEDIO'
-                    ? [m3u8Urls[0]]
+                    ? m3u8Urls
                     : mediaUrls,
             description,
             publicMetrics: { views: pm[0], replys: pm[1], retweets: pm[2], likes: pm[3], bookmarks: pm[4] },
