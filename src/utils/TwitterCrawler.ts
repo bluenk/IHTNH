@@ -98,8 +98,8 @@ export default class TwitterCrawler {
         
         const description =
             await this.page.$$eval(
-                `article[tabindex="-1"] div[data-testid="tweetText"] span:not([aria-hidden="true"]), article[tabindex="-1"] div[data-testid="tweetText"] a:has(span)`,
-                els => els.map(el => el.innerText).join('')
+                `article[tabindex="-1"] div[data-testid="tweetText"] span:not([aria-hidden="true"]), article[tabindex="-1"] div[data-testid="tweetText"] a:has(span), article[tabindex="-1"] div[data-testid="tweetText"] img`,
+                els => els.map(el => el.innerText || el.getAttribute('alt')).join('')
                 )
                 .catch(err => '');
         
