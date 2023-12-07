@@ -1,12 +1,13 @@
-import { Collection, Interaction, Message, ActionRowBuilder, ButtonBuilder, BaseMessageOptions, ButtonStyle, MessagePayload, RawFile, MessageCreateOptions, AttachmentPayload, AttachmentBuilder } from "discord.js";
+import { Collection, Interaction, Message, ActionRowBuilder, ButtonBuilder, BaseMessageOptions, ButtonStyle, MessagePayload, RawFile, MessageCreateOptions, AttachmentPayload, AttachmentBuilder, codeBlock } from "discord.js";
 import { Client } from "../structures/Client.js";
 import { Handler } from "../structures/Handler.js";
 import EmbedBuilder from "../structures/EmbedBuilder.js";
 import urlMetadata from "url-metadata";
 import extractURL from "../utils/extractURL.js";
-import TwitterCrawler, { ITweetData } from "../utils/TwitterCrawler.js";
+import TwitterCrawler, { ITweetData, IUserData } from "../utils/TwitterCrawler.js";
 import ffmpegStreamer from "../utils/ffmpegStreamer.js";
 import { log } from "../utils/logger.js";
+import { includes } from "lodash";
 
 
 const embedCheckDelay = 8; //sec
@@ -49,7 +50,7 @@ export default class PreviewFix extends Handler {
         const needFix = [
             ...twitterUrls
                 .filter(url => !msg.embeds.find((v) => v.url === url.href))
-                .filter(url => Boolean(url.pathname.split('/')[3])),
+                .filter(url => Boolean(url.pathname.split('/')[1])),
             ...lineTodayUrls
         ];
         // console.log(msg.embeds, {needFix});
@@ -168,52 +169,62 @@ export default class PreviewFix extends Handler {
 
         // msg.reply(data.mediaUrls.map(u => u.href).join('\n'));
         // console.log(data);
-        return this.makeTweetEmbeds(data);
+        return data.type === 'TWEET'
+            ? this.makeTweetEmbeds(data as ITweetData)
+            : this.makeTwitterUserEmbeds(data as IUserData)
     }
 
     private async makeTweetEmbeds(tweetsData: ITweetData): Promise<MessageCreateOptions> {
         let files: AttachmentBuilder[] = [];
-        const { author, mediaUrls, url, publicMetrics, timestamp, description } = tweetsData; 
+        const { error, author, mediaUrls, url, publicMetrics, timestamp, description } = tweetsData; 
 
-        tweetsData.mediaUrls.forEach(({ url, mediaType }) => {
-             if (mediaType === 'VIDEO_GIF') {
-                files.push(new AttachmentBuilder(url.href));
-            }
-            if (mediaType === 'VIDEO') {
-                files.push(new AttachmentBuilder(ffmpegStreamer(url.href), { name: 'preview.mp4' }));
-            }
+        tweetsData.mediaUrls?.forEach(({ url, mediaType }) => {
+            if (mediaType === 'PHOTO') return;
+
+            files.push(
+                new AttachmentBuilder(
+                    url.href.includes('.m3u8')
+                        ? ffmpegStreamer(url.href, 'STREAM_MP4')
+                        : mediaType === 'ANIMATED_GIF' 
+                            ? ffmpegStreamer(url.href, 'GIF')
+                            : url.href
+                    , { name: 'preview.' + (mediaType === 'VIDEO' ? 'mp4' : 'gif') }
+                )
+            );
         });
        
         const embeds = [
             new EmbedBuilder({
-                url: url.href,
-                author: {
+                url: url?.href,
+                author: 
+                    author && {
                     name: author.name + ` (${author.id})`,
-                    icon_url: author.pfp.href
+                    icon_url: author?.pfp.href
                 },
-                description,
-                fields: [
+                description: error ? '\❌ *這篇推文已經被刪除了*': description,
+                fields: 
+                    publicMetrics && [
                     { name: '', value: `<:retweet:1161941192418803732>  ${publicMetrics.retweets}`, inline: true },
-                    { name: '', value: `<:like:1161943557448413194>  ${publicMetrics.likes}`, inline: true },
+                    { name: '', value: `<:like:1161943557448413194>  ${publicMetrics.likes}`, inline: true }
                 ],
-                image: mediaUrls[0]?.mediaType === 'IMAGE' ? { url: mediaUrls[0].url.href } : undefined,
+                image: mediaUrls && mediaUrls[0]?.mediaType === 'PHOTO' ? { url: mediaUrls[0].url.href } : undefined,
                 footer: {
-                    text: `推文預覽  •  ${publicMetrics.views} 次查看`,
+                    text: `推文預覽${(publicMetrics && '  •  ' + publicMetrics.views + ' 次查看') || ''}`,
                     icon_url: 'https://abs.twimg.com/icons/apple-touch-icon-192x192.png'
                 },
-                timestamp: new Date(timestamp).toISOString()
+                timestamp: timestamp && new Date(timestamp).toISOString()
             })
         ];
 
         // Adding additional images
-        if (mediaUrls.length > 1) {
+        if (mediaUrls && mediaUrls.length > 1) {
             mediaUrls
-                .filter(m => m.mediaType === "IMAGE")
+                .filter(m => m.mediaType === "PHOTO")
                 .slice(1)
                 .forEach(mUrl => {
                     embeds.push(
                         new EmbedBuilder({
-                            url: url.href,
+                            url: url?.href,
                             image: { url: mUrl.url.href }
                         })
                     );
@@ -223,6 +234,55 @@ export default class PreviewFix extends Handler {
         return { embeds, files };
     }
     
+    private async makeTwitterUserEmbeds(userData: IUserData): Promise<MessageCreateOptions> {
+        const {
+            error,
+            user, 
+            url,
+            publicMetrics,
+            description,
+
+        } = userData; 
+       
+        const embeds = [
+            new EmbedBuilder(
+                !error
+                    ? {
+                        url: url?.href,
+                        author: 
+                            user && {
+                            name: user.name + ` (@${user.id})`
+                        },
+                        description,
+                        fields: 
+                            publicMetrics && [
+                            { name: '', value: `${publicMetrics.following.toLocaleString('zh-TW')} **個跟隨中**`, inline: true },
+                            { name: '', value: `${publicMetrics.followers.toLocaleString('zh-TW')} **位跟隨者**`, inline: true }
+                        ],
+                        thumbnail: user && { url: user?.pfp.href.replace('_normal.', '_400x400.') },
+                        image: user?.banner && { url: user?.banner.href },
+                        footer: {
+                            text:
+                                `使用者預覽  •  ` + 
+                                `${publicMetrics!.status.toLocaleString('zh-TW')} 則貼文　|　` +
+                                `${publicMetrics!.medias.toLocaleString('zh-TW')} 個相片和影片　|　` +
+                                `${publicMetrics!.likes.toLocaleString('zh-TW')} 個喜歡`
+                                ,
+                            icon_url: 'https://abs.twimg.com/icons/apple-touch-icon-192x192.png'
+                        }
+                    }
+                    : {
+                        description: '\❌ *此帳戶不存在*',
+                        footer: {
+                            text: `使用者預覽`,
+                            icon_url: 'https://abs.twimg.com/icons/apple-touch-icon-192x192.png'
+                        }
+                    }
+            )
+        ];
+        
+        return { embeds };
+    }
 
     private queueAdd(originId: string, repairedId: string) {
         this.repairedMsg.push({ originId, repairedId });
