@@ -13,10 +13,11 @@ const ffmpegPath = '/usr/bin/ffmpeg';
 export default function ffmpegStreamer(url: string, mode: 'STREAM_MP4' | 'GIF') {
     log('Start streaming data...');
     log('Streaming mode: ' + mode);
+    log('url: ' + url);
 
     const gifOptions = [
         '-i', url,
-        '-vf', 'split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse',
+        '-vf', 'scale=-1:480:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse',
         '-f', 'GIF',
         '-'
     ];
