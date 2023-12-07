@@ -35,12 +35,13 @@ export default class TwitterCrawler {
         return page;
     }
 
-    public async crawl(url: URL): Promise<ITweetData> {
+    public async crawl(url: URL): Promise<ITweetData | IUserData> {
         if (!this.page) throw Error('Crawler not initialized yet!');
 
         await this.page.goto(url.toString());
 
-        const linkType = url.pathname.includes('/status/') ? 'TWEET' : 'OTHERS'
+        const linkType = url.pathname.includes('/status/') ? 'TWEET' : 'OTHERS';
+        log('link type: ' + linkType);
 
         // Catch every m3u8 that can be found in the requests
         const m3u8Urls: URL[] = [];
@@ -149,6 +150,7 @@ export default class TwitterCrawler {
         
         return {
             error: false,
+            type: "TWEET",
             url: new URL(tweetUrl),
             author: { id: authorId, name: authorName, pfp: new URL(authorPfP) },
             mediaUrls,
@@ -158,22 +160,76 @@ export default class TwitterCrawler {
         };
     }
 
-    private async apiResponseCatch(linkType: 'TWEET' | 'OTHERS'): Promise<ITweetData> {
+    private async apiResponseCatch(linkType: 'TWEET' | 'OTHERS'): Promise<ITweetData | IUserData> {
         if (!this.page) throw Error('Crawler not initialized yet!');
 
+        // user profile
         if (linkType === 'OTHERS') {
             const userDetail = await (await this.page.waitForResponse(res => res.request().url().includes('UserByScreenName'))).json() as IUserDetail;
             
+            // user got banned
+            if (!userDetail.data.user) return { error: true, type: 'USER' };
+            
+            const {
+                legacy,
+                is_blue_verified
+            } = userDetail.data.user.result;
+            const {
+                screen_name,
+                name,
+                profile_image_url_https,
+                profile_banner_url,
+                followers_count,
+                friends_count,
+                favourites_count,
+                statuses_count,
+                media_count,
+                listed_count,
+                url,
+                description,
+                verified
+            } = legacy;
+
+            return {
+                error: false,
+                type: "USER",
+                user: {
+                    id: screen_name,
+                    name,
+                    pfp: new URL(profile_image_url_https),
+                    banner: profile_banner_url ? new URL(profile_banner_url) : undefined
+                },
+                publicMetrics: {
+                    followers: followers_count,
+                    following: friends_count,
+                    status: statuses_count,
+                    medias: media_count,
+                    likes: favourites_count,
+                    listed: listed_count
+                },
+                url: new URL(`https://twitter.com/${screen_name}`),
+                description,
+                verified,
+                blueVerified: is_blue_verified
+            }
         }
 
         const tweetDetail = await (await this.page.waitForResponse(res => res.request().url().includes('TweetDetail'))).json() as ITweetDetail;
         
-        if (tweetDetail.errors?.length) return { error: true };
-        if (!tweetDetail.data.threaded_conversation_with_injections_v2?.instructions[0].entries![0].content.itemContent?.tweet_results) return { error: true };
+        if (tweetDetail.errors?.length) return { error: true, type: "TWEET" };
+        if (
+            !tweetDetail.data.threaded_conversation_with_injections_v2?.instructions[0]
+                .entries![0].content.itemContent?.tweet_results
+        ) return { error: true, type: 'TWEET' };
 
         const tweetResults =
             tweetDetail.data.threaded_conversation_with_injections_v2?.instructions[0].entries[0].content.itemContent?.tweet_results;
         const { core, views, legacy, card } = tweetResults.result;
+
+        if (!legacy || !core || !views) {
+            return { error: true, type: "TWEET"}
+        }
+            
         const {
             entities,
             created_at,
@@ -189,6 +245,7 @@ export default class TwitterCrawler {
 
         return {
             error: false,
+            type: 'TWEET',
             url: new URL(`https://twitter.com/i/status/${id_str}`),
             author: {
                 id: '@' + authorResult.legacy.screen_name,
@@ -261,9 +318,14 @@ export default class TwitterCrawler {
     }
 }
 
-export interface ITweetData {
+interface crawlData {
     error: boolean,
+    type: 'TWEET' | 'USER',
     url?: URL,
+    description?: string,
+}
+
+export interface ITweetData extends crawlData {
     mediaUrls?: { url: URL, mediaType: 'PHOTO' | 'VIDEO' | 'ANIMATED_GIF' }[],
     author?: {
         id: string,
@@ -276,9 +338,28 @@ export interface ITweetData {
         retweets: string,
         likes: string,
         bookmarks: string
-    },
-    description?: string,
+    }
     timestamp?: string
+}
+
+export interface IUserData extends crawlData {
+    user?: {
+        id: string,
+        name: string,
+        pfp: URL,
+        banner?: URL
+    },
+    publicMetrics?: {
+        following: number,
+        followers: number,
+        listed: number,
+        likes: number,
+        medias: number,
+        status: number
+    },
+    location?: string,
+    blueVerified?: boolean,
+    verified?: boolean
 }
 
 interface ITweetDetail {
@@ -304,10 +385,26 @@ interface ITweetDetail {
                             __typename: string,
                             tweet_results: {
                                 result: {
-                                    __typename: string,
-                                    rest_id: string, // tweet id
-                                    has_birdwatch_notes: boolean,
-                                    core: { // author info
+                                    __typename: 'Tweet' | 'TweetTombstone',
+                                    tombstone?: {
+                                        __typename: 'TextTombstone',
+                                        text: {
+                                            rtl: boolean,
+                                            text: string,
+                                            entities: {
+                                                fromIndex: number,
+                                                toIndex: number,
+                                                ref: {
+                                                    type: string,
+                                                    url: string,
+                                                    urlType: string
+                                                }
+                                            }[]
+                                        }
+                                    },
+                                    rest_id?: string, // tweet id
+                                    has_birdwatch_notes?: boolean,
+                                    core?: { // author info
                                         user_results: {
                                             result: {
                                                 __typename: string,
@@ -433,23 +530,23 @@ interface ITweetDetail {
                                             user_refs_results: []
                                         }
                                     }
-                                    unmention_data: {},
+                                    unmention_data?: {},
                                     unified_card?: {
                                         card_fetch_state: string | 'NoCard'
                                     },
-                                    edit_control: {
+                                    edit_control?: {
                                         edit_tweet_ids: string[],
                                         editable_until_msecs: string,
                                         is_edit_eligible: boolean,
                                         edits_remaining: string
                                     },
-                                    is_translatable: boolean,
-                                    views: {
+                                    is_translatable?: boolean,
+                                    views?: {
                                         count: string,
                                         state: string
                                     },
-                                    source: string,
-                                    legacy: {
+                                    source?: string,
+                                    legacy?: {
                                         bookmark_count: number,
                                         bookmarked: boolean,
                                         created_at: string,
@@ -584,7 +681,7 @@ interface ITweetDetail {
                                         user_id_str: string,
                                         id_str: string
                                     },
-                                    quick_promote_eligibility: {
+                                    quick_promote_eligibility?: {
                                         eligibility: string | 'IneligibleNotProfessional'
                                     }
                                 }
@@ -605,7 +702,7 @@ interface ITweetDetail {
 
 interface IUserDetail {
     data: {
-        user: {
+        user?: {
             result: {
                 __typename: string,
                 id: string, // base64 encoded api id
@@ -653,6 +750,7 @@ interface IUserDetail {
                     normal_followers_count: number,
                     pinned_tweet_ids_str: string[],
                     possibly_sensitive: boolean,
+                    profile_banner_url?: string,
                     profile_image_url_https: string,
                     profile_interstitial_type: string,
                     screen_name: string, // display user id
