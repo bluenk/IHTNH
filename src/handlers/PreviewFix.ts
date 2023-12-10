@@ -96,6 +96,8 @@ export default class PreviewFix extends Handler {
         const filter = (i: Interaction) => i.user.id === msg.author.id;
         replyMsg.awaitMessageComponent({ filter, time: embedDeleteTimeout * 60 * 1000 })
             .then(i => {
+                log(`${i.user.displayName} requested embed removal`)
+                
                 this.queueRemove(replyMsg.id);
                 replyMsg.delete();
             })
