@@ -6,9 +6,10 @@ import urlMetadata from "url-metadata";
 import extractURL from "../utils/extractURL.js";
 import TwitterCrawler, { ITweetData, IUserData } from "../utils/TwitterCrawler.js";
 import ffmpegStreamer from "../utils/ffmpegStreamer.js";
-import { log } from "../utils/logger.js";
+import { loggerInit } from "../utils/logger.js";
 import { includes } from "lodash";
 
+const log = loggerInit('previewFix');
 
 const embedCheckDelay = 8; //sec
 const embedDeleteTimeout = 1; //min
@@ -94,26 +95,28 @@ export default class PreviewFix extends Handler {
         this.queueAdd(msg.id, replyMsg.id);
         
         const filter = (i: Interaction) => i.user.id === msg.author.id;
-        replyMsg.awaitMessageComponent({ filter, time: embedDeleteTimeout * 60 * 1000 })
-            .then(i => {
-                log(`${i.user.displayName} requested embed removal`)
+        const btnCollector = replyMsg.createMessageComponentCollector({ filter, time: embedDeleteTimeout * 60 * 1000 })
+        
+        btnCollector
+            .on('collect', c => {
+                log(`${c.user.displayName} requested embed removal`)
                 
                 this.queueRemove(replyMsg.id);
+                btnCollector.stop('Message deletion');
                 replyMsg.delete();
             })
-            .catch(err => {
-                if (err.code === 'InteractionCollectorError') {
-                    if (!replyMsg.editable) return;
-                    replyMsg.edit({ components:[] });
-                } else {
-                    log(err, this.options.info.name);
-                }
+            .once('end', (c, reason) => {
+                if (reason === 'Message deletion') return;
+                replyMsg.edit({ components:[] });
             });
-        
-        // Check if original message has genarated perview, if yes then remove replyed message
+ 
+        // Check if original message has genarated perview, if yes then remove replied message
         setTimeout(async () => {
-            if (msg.embeds.length > 0) {
+            if (msg.embeds.length > 0 && this.repairedMsg.some((v => v.repairedId === replyMsg.id))) {
+                log('embed has been genarated by discord, removing reply message');
+
                 this.queueRemove(replyMsg.id);
+                btnCollector.stop('Message deletion');
                 replyMsg.delete();
             }
         }, embedCheckDelay * 1000)
@@ -165,7 +168,7 @@ export default class PreviewFix extends Handler {
     }
 
     private async fixTwitter(msg: Message, twitterUrls: URL[]) {
-        log(twitterUrls.length + ' tweet preview failures detected. Fixing...', this.options.info.name);
+        log(twitterUrls.length + ' tweet preview failures detected. Fixing...');
         // const tweetIds = twitterUrls.map(url => url.pathname.split('/')[3]);
         const data = await this.twitterCrawler.crawl(twitterUrls[0]);
 
