@@ -2,37 +2,28 @@ import puppeteer, { Page, Protocol } from "puppeteer";
 import { writeFile, readFile } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import WebCrawler from "../structures/WebCrawler.js";
 import { loggerInit } from "./logger.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const log = loggerInit('TwitterCrawler');
 
-export default class TwitterCrawler {
-    private loginCookies: Protocol.Network.Cookie[] = [];
-    private page: Page | null = null;
+export default class TwitterCrawler extends WebCrawler {
+    protected cookies: Protocol.Network.Cookie[] = [];
+    protected page?: Page;
     
     public constructor() {
-        readFile(__dirname + '/../../assets/cookie-cache', (err, data) => {
-            if (err) throw err;
+        super();
+        readFile(__dirname + '/../../assets/cookie-cache', async (err, data) => {
+            if (err) {
+                log('Failed to load cookies! Continue inti page without been login.');
+                log(err);
+            } else {
+                this.cookies = JSON.parse(data.toString());
+            }
 
-            this.loginCookies = JSON.parse(data.toString());
+            this.page = await this.initPage(new URL('https://twitter.com/'));
         });
-    }
-
-    public async init() {
-        const browser = await puppeteer.launch({ headless: 'new', executablePath: '/usr/bin/google-chrome-stable' });
-        const page = await browser.newPage();
-
-        await page.setCookie(...this.loginCookies);
-
-        await page.goto('https://twitter.com/');
-
-        // await this.login(page);
-
-        log('Browser has initialized.');
-
-        this.page = page;
-        return page;
     }
 
     public async crawl(url: URL): Promise<ITweetData | IUserData> {
@@ -320,8 +311,8 @@ export default class TwitterCrawler {
         await page.click("div[role=button] > div > span > span");
         await page.waitForSelector("h1[role=heading]");
 
-        this.loginCookies = await page.cookies();
-        writeFile(__dirname + '/../../assets/cookie-cache', JSON.stringify(this.loginCookies), err => { if (err) throw err });
+        this.cookies = await page.cookies();
+        writeFile(__dirname + '/../../assets/cookie-cache', JSON.stringify(this.cookies), err => { if (err) throw err });
     }
 }
 

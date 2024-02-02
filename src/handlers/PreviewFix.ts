@@ -18,7 +18,6 @@ export default class PreviewFix extends Handler {
     private repairedMsg: { originId: string, repairedId: string }[] = [];
     private queueSize = 10;
     private twitterCrawler: TwitterCrawler;
-    private page;
 
     public constructor(client: Client) {
         super(client, {
@@ -31,7 +30,6 @@ export default class PreviewFix extends Handler {
         });
 
         this.twitterCrawler = new TwitterCrawler();
-        this.page = this.twitterCrawler.init();
     }
 
     public execute(): void {}
