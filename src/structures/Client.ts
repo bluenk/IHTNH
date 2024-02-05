@@ -5,6 +5,7 @@ import CommandLoader from "../utils/CommandLoader.js";
 import ConnectDb from "../utils/ConnectDb.js";
 import App from "../api/App.js";
 import HandlerLoader from "../utils/HandlerLoader.js";
+import WebCrawler from "./WebCrawler.js";
 
 export interface ReplyKeywords {
     keywords: string[];
@@ -21,12 +22,15 @@ export class Client extends DiscordClient {
         super(options);
     }
 
-    public start() {
+    public async start() {
+        await WebCrawler.initBrowser();
+
         this.login(process.env.BOT_TOKEN);
         this.events.load();
         this.commands.load();
         this.handlers.load();
         this.app.start();
+        
 
         this.on('ready', async () => {
             log(`Logged in as ${this.user?.tag}`);

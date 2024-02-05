@@ -14,16 +14,10 @@ export default class TwitterCrawler extends WebCrawler {
     
     public constructor() {
         super();
-        readFile(__dirname + '/../../assets/cookie-cache', async (err, data) => {
-            if (err) {
-                log('Failed to load cookies! Continue inti page without been login.');
-                log(err);
-            } else {
-                this.cookies = JSON.parse(data.toString());
-            }
-
+        
+        this.loadCookies('cookie-twitter', async (err, cookie) => {
             this.page = await this.initPage(new URL('https://twitter.com/'));
-        });
+        })        
     }
 
     public async crawl(url: URL): Promise<ITweetData | IUserData> {
@@ -311,8 +305,7 @@ export default class TwitterCrawler extends WebCrawler {
         await page.click("div[role=button] > div > span > span");
         await page.waitForSelector("h1[role=heading]");
 
-        this.cookies = await page.cookies();
-        writeFile(__dirname + '/../../assets/cookie-cache', JSON.stringify(this.cookies), err => { if (err) throw err });
+        this.exportCookies('cookie-twitter');
     }
 }
 
