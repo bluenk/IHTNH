@@ -10,7 +10,6 @@ import {
     MessageComponentInteraction,
     MessageEditOptions,
     APIEmbed,
-    SelectMenuBuilder,
     User,
     codeBlock,
     inlineCode,
@@ -18,7 +17,7 @@ import {
     ButtonStyle,
     ButtonComponent,
     AutocompleteInteraction,
-    CacheType
+    StringSelectMenuBuilder
 } from "discord.js";
 import fetch from "node-fetch";
 import FormData from "form-data";
@@ -348,9 +347,9 @@ export default class Reply extends Command {
         const noOptions = doc.keyword.length + doc.response.length === 2;
         const menu = await replyMsg.fetch();
 
-        const seleteRow = new ActionRowBuilder<SelectMenuBuilder>({
+        const seleteRow = new ActionRowBuilder<StringSelectMenuBuilder>({
             components: [
-                new SelectMenuBuilder({
+                new StringSelectMenuBuilder({
                     customId: 'list',
                     maxValues: 1,
                     options: [
@@ -382,7 +381,7 @@ export default class Reply extends Command {
 
         let deletePart;
         let showPreview = true;
-        if (collected.isSelectMenu()) {
+        if (collected.isStringSelectMenu()) {
             const value = collected.values[0];
             if (this.isURL(value)) {
                 const { deleteHash } = doc.response.find(v => v.url === value)!;
