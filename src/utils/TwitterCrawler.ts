@@ -45,6 +45,8 @@ export default class TwitterCrawler extends WebCrawler {
                     m3u8Urls.push(reqUrl);
             }
         });
+
+        this.exportCookies('cookie-twitter');
  
         try {
             return this.apiResponseCatch(linkType);
@@ -54,7 +56,7 @@ export default class TwitterCrawler extends WebCrawler {
             log(err);
 
             return this.queryPage(m3u8Urls);
-        }        
+        }
     }
 
     private async queryPage(m3u8Urls: URL[]): Promise<ITweetData> {
