@@ -68,8 +68,13 @@ export default class PreviewFix extends Handler {
         
         const needFix = [
             ...twitterUrls
-                .filter(url => !msg.embeds.find((v) => v.url === url.href))
-                .filter(url => Boolean(url.pathname.split('/')[1])),
+                .filter(url => Boolean(url.pathname.split('/')[1]))
+                .filter(
+                    url =>
+                        SUPPRESS_PREVIEW
+                        ? true
+                        : !msg.embeds.find((v) => v.url === url.href)
+                ),
             ...lineTodayUrls,
             ...BAHAUrls
         ];
