@@ -35,8 +35,21 @@ export default class Say extends Command {
     }
 
     public async run(msg: ChatInputCommandInteraction, args?: string[]) {
-        const content = msg.options.getString('message')!;
-        await msg.channel?.send({ content });
-        msg.reply({ content: '\\✔️ | 已發送！', ephemeral: true, allowedMentions: { repliedUser: false } });
+        const content =
+            msg.options.getString('message', true)
+                .split('\\n')
+                .map(
+                    (v, i) =>
+                        i === 0
+                            ? v
+                            : v.slice(1)
+        );
+    
+        await msg.channel?.send({ content: content.join('\n') });
+        msg.reply({
+            content: '\\✔️ | 已發送！',
+            ephemeral: true,
+            allowedMentions: { repliedUser: false }
+        });
     }
 }
