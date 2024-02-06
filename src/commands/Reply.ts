@@ -17,7 +17,9 @@ import {
     ButtonStyle,
     ButtonComponent,
     AutocompleteInteraction,
-    StringSelectMenuBuilder
+    CacheType,
+    StringSelectMenuBuilder,
+    MessageFlags
 } from "discord.js";
 import fetch from "node-fetch";
 import FormData from "form-data";
@@ -30,7 +32,8 @@ import { Document, Model, Types } from "mongoose";
 
 enum SubCommand {
     NEW = 'new',
-    EDIT = 'edit'
+    EDIT = 'edit',
+    GET = 'get'
 }
 
 enum ErrorMessages {
@@ -53,6 +56,7 @@ interface Props {
     targetKeyword: string;
     content?: string;
     author: User;
+    msg: Message | CommandInteraction;
     replyMsg: Message;
     model: Model<ReplyData>;
     doc: (Document<unknown, any, ReplyData> & ReplyData & {
@@ -71,12 +75,13 @@ export default class Reply extends Command {
                 detail: '使用者打出特定詞彙時會回覆對應圖片。',
                 category: 'guild',
                 alias: [],
-                usage: ['reply new', 'reply edit'],
+                usage: Object.values(SubCommand).map(v => `/reply ${v}`),
                 example:
                     'i.reply new 觸發詞 https://i.imgur.com/example.jpg' + '\n' +
                     'i.reply edit 觸發詞' + '\n' +
                     '/reply new keyword:觸發詞 url:https://i.imgur.com/example.jpg' + '\n' +
-                    '/reply edit keyword:觸發詞',
+                    '/reply edit keyword:觸發詞' + '\n' +
+                    '/reply get keyword:觸發詞',
                 enable: true
             },
             commandOptions: [
@@ -111,7 +116,21 @@ export default class Reply extends Command {
                             options: [
                                 {
                                     type: ApplicationCommandOptionType.String,
-                                    name: 'edit_keyword',
+                                    name: 'keyword',
+                                    description: '目標觸發詞',
+                                    required: true,
+                                    autocomplete: true
+                                }
+                            ]
+                        },
+                        {
+                            type: ApplicationCommandOptionType.Subcommand,
+                            name: SubCommand.GET,
+                            description: '取圖模式',
+                            options: [
+                                {
+                                    type: ApplicationCommandOptionType.String,
+                                    name: 'keyword',
                                     description: '目標觸發詞',
                                     required: true,
                                     autocomplete: true
@@ -125,8 +144,9 @@ export default class Reply extends Command {
     }
 
     public async autocomplete(i: AutocompleteInteraction<CacheType>) {
-        const value = i.options.getString('edit_keyword');
+        const value = i.options.getString('keyword');
         if (!value) return;
+        
         const model = new ReplyDb(this.client, i.guildId!).model;
         
         const ac = await model.aggregate([
@@ -155,56 +175,85 @@ export default class Reply extends Command {
         if (!msg.inGuild()) return;
         if (!msg.channel) return;
         
+        let replyMsg: Message;
         let keyword: string | undefined;
         let content: string | undefined;
-        let subCommand: string | undefined;
         
-        const replyMsg = await msg.reply({ content: '處理中...', fetchReply: true }) as Message;
+        // match subcommand string to enum.
+        let subCommand =
+                SubCommand[
+                    Object.keys(SubCommand).find(k => {
+                        return SubCommand[k as keyof typeof SubCommand] ===
+                            (
+                                msg instanceof CommandInteraction
+                                    ? msg.options.getSubcommand(true)
+                                    : args[1]
+                            );
+                    }) as keyof typeof SubCommand
+        ];
 
-        // Get keyword and url.
-        if (msg instanceof CommandInteraction) {
-            subCommand = msg.options.getSubcommand(true);
-            keyword = msg.options.getString('edit_keyword')!;
-            if (subCommand === SubCommand.NEW) {
-                content = msg.options.getString('url')!;
-            }
+        switch (subCommand) {
+            case SubCommand.GET:
+                // i'm just too lazy to deal with this rn, won't become a bug at somepoint right...?
+                replyMsg = null as unknown as Message;
+                keyword = (msg as ChatInputCommandInteraction).options.getString('keyword', true);
+                
+                break;
+            
+            default:
+                replyMsg = 
+                    await msg.reply({
+                        content: '處理中...',
+                        fetchReply: true,
+                }) as Message;
+            
+            
+                // Get keyword and url.
+                if (msg instanceof CommandInteraction) {
+                    keyword = msg.options.getString('keyword', true);
+                    content = msg.options.getString('url') || undefined;
+                }
+
+                if (msg instanceof Message) {
+                    // console.log({ args });
+                    if (args.length < 3) return replyMsg.edit(this.makeErrMsg('ARGS_MISSING'));
+                    if (!(Object.values(SubCommand).find(v => v === args[1]))) return replyMsg.edit(this.makeErrMsg('ARGS_MISSING'));
+                                
+                    keyword = args[2];
+                    content = args[3] || msg.attachments.first()?.url;
+                }
+
+                if (subCommand === SubCommand.NEW) {
+                    if (!content) return replyMsg.edit(this.makeErrMsg('ARGS_MISSING'));
+                    if (
+                        msg instanceof Message && 
+                        ((msg.attachments.first()?.size! / 1024 / 1024) > 10)
+                    ) {
+                        return this.replyMsg.get(msg.id)?.edit(this.makeErrMsg('IMAGE_TOO_LARGE'));
+                    }
+                }
+
+                break;
         }
 
-        if (msg instanceof Message) {
-            // console.log({ args });
-            if (args.length < 3) return replyMsg.edit(this.makeErrMsg('ARGS_MISSING'));
-            if (!(Object.values(SubCommand).find(v => v === args[1]))) return replyMsg.edit(this.makeErrMsg('ARGS_MISSING'));
-            subCommand = args[1];
-            keyword = args[2];
-
-            if (subCommand === SubCommand.NEW) {
-                content = args[3] || msg.attachments.first()?.url;
-                if (!content) return replyMsg.edit(this.makeErrMsg('ARGS_MISSING'));
-                if ((msg.attachments.first()?.size! / 1024 / 1024) > 10) return this.replyMsg.get(msg.id)?.edit(this.makeErrMsg('IMAGE_TOO_LARGE'));
-            }
-        }
+        if (!keyword) return log(Error('Unable to find the keyword!'));
 
         const props: Props = {
-            targetKeyword: keyword!,
+            targetKeyword: keyword,
             content,
+            msg,
             author:  'author' in msg ? msg.author : msg.user,
             replyMsg,
             model: new ReplyDb(this.client, msg.guildId).model,
             doc: null
         };
 
-        switch (subCommand) {
-            case SubCommand.NEW:
-                await this.new(props);
-                break;
-            case SubCommand.EDIT:
-                await this.edit(props);
-                break;
-        }
+        this[subCommand](props);
     }
 
     private async new(props: Props) {
         const { replyMsg, targetKeyword } = props;
+
         if (await this.checkKeywordExist(props, targetKeyword)) {
             replyMsg.edit({
                 content: this.makeErrMsg('KEYWORD_EXIST'),
@@ -212,16 +261,20 @@ export default class Reply extends Command {
             });
             return;
         }
+
         const correct = await this.handleCheckMenu(props, props.replyMsg);
         if (!correct) return;
+
         const res = await this.uploadImgur(props);
         if (!res) return replyMsg.edit(this.makeErrMsg('IMAGE_UPLOAD_FAILED'));
+
         await this.appendData(res, props);
         await replyMsg.edit(this.makeSuccessEmbed(res, props));
     }
 
     private async edit(props: Props) {
         const { author, replyMsg, targetKeyword, model } = props;
+        
         if (!await this.checkKeywordExist(props, targetKeyword)) {
             replyMsg.edit({
                 content: this.makeErrMsg('KEYWORD_NOT_EXIST')
@@ -258,7 +311,7 @@ export default class Reply extends Command {
 
         const menu = await replyMsg.edit({
             content: ' ',
-            embeds: [await this.makeKeywordEmbed(props, 'preview')],
+            embeds: [await this.makeKeywordEmbed(props, 'editPreview')],
             components: [btnRow]
         });
 
@@ -280,6 +333,17 @@ export default class Reply extends Command {
                 await this.delete(props);
                 break;
         }
+    }
+
+    private async get(props: Props) {
+        const { msg, targetKeyword } = props;
+
+        const menu = await msg.reply({
+            content: ' ',
+            embeds: [await this.makeKeywordEmbed(props, 'preview')],
+            // components: [btnRow],
+            ephemeral: true
+        });
     }
         
     private async add(props: Props, mode: 'addKeyword' | 'addContent') {
@@ -331,7 +395,7 @@ export default class Reply extends Command {
 
         replyMsg.edit({
             content: dbRes ? '\\✔️ | 操作成功，觸發詞已更新。' : this.makeErrMsg('DB_UPDATE_FAILED'),
-            embeds: [await this.makeKeywordEmbed(props, 'preview')],
+            embeds: [await this.makeKeywordEmbed(props, 'editPreview')],
             components: []
         });
 
@@ -410,7 +474,7 @@ export default class Reply extends Command {
 
         menu.edit({
             content: `\\✔️ | ${deletePart}已移除。`,
-            embeds: showPreview ? [await this.makeKeywordEmbed(props, 'preview')] : [],
+            embeds: showPreview ? [await this.makeKeywordEmbed(props, 'editPreview')] : [],
             components: []
         })
     }
@@ -591,7 +655,7 @@ export default class Reply extends Command {
         return { embeds: [embed] , content: ' '}
     }
 
-    private async makeKeywordEmbed(props: Props, type: 'preview' | 'conflict') {
+    private async makeKeywordEmbed(props: Props, type: 'editPreview' | 'conflict' | 'preview') {
         const { model, targetKeyword, doc: dDoc } = props;
 
         const doc = await model.findOne(dDoc ? { _id: dDoc._id } : { keyword: targetKeyword })!.exec();
@@ -609,9 +673,9 @@ export default class Reply extends Command {
             thumbnail: { url: doc.response[0].url }
         };
         switch(type) {
-            case 'preview':
+            case 'editPreview':
                 embedOptions = {
-                    author: { name: '🔍 觸發詞預覽' },
+                    author: { name: '🔍 編輯觸發詞' },
                     fields: [
                         ...defaultOptions.fields!,
                         {
@@ -620,6 +684,22 @@ export default class Reply extends Command {
                             inline: true
                         }
                     ]
+                };
+                break;
+
+            case 'preview':
+                embedOptions = {
+                    author: { name: '🔍 預覽觸發詞' },
+                    fields: [
+                        ...defaultOptions.fields!,
+                        {
+                            name: '圖片',
+                            value: doc.response.map(v => v.url).join('\n'),
+                            inline: true
+                        }
+                    ],
+                    image: { url: doc.response[0].url },
+                    thumbnail: undefined
                 };
                 break;
 
