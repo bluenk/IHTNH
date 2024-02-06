@@ -665,8 +665,13 @@ export default class Reply extends Command {
         const defaultOptions: APIEmbed = {
             fields: [
                 {
-                    name: '觸發詞\u2800\u2800',
+                    name: '觸發詞',
                     value: doc.keyword.map(s => s === targetKeyword ? bold(s) : s).join('\n')!,
+                    inline: true
+                },
+                {
+                    name: '\u200b',
+                    value: '',
                     inline: true
                 }
             ],
