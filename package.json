@@ -1,6 +1,6 @@
 {
   "name": "ihtnh",
-  "version": "0.23.0",
+  "version": "0.23.1",
   "description": "discord bot",
   "main": "bot.js",
   "type": "module",
@@ -16,6 +16,7 @@
     "form-data": "^4.0.0",
     "get-youtube-id": "^1.0.1",
     "glob": "^7.2.0",
+    "htmlparser2": "^9.1.0",
     "jsqr": "^1.4.0",
     "libsodium-wrappers": "^0.7.10",
     "lodash": "^4.17.21",
